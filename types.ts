@@ -51,7 +51,7 @@ export interface NotebookEntry {
   date: string; // To track daily limits
 }
 
-export type UserRole = 'STUDENT' | 'CURATOR' | 'ADMIN';
+export type UserRole = 'STUDENT' | 'ADMIN';
 
 export interface ChatMessage {
   id: string;
@@ -220,7 +220,6 @@ export enum Tab {
   STREAMS = 'STREAMS', 
   NOTEBOOK = 'NOTEBOOK', 
   PROFILE = 'PROFILE',
-  CURATOR_DASHBOARD = 'CURATOR_DASHBOARD',
   ADMIN_DASHBOARD = 'ADMIN_DASHBOARD'
 }
 

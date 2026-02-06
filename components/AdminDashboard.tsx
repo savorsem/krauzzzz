@@ -83,7 +83,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <label className="text-[10px] uppercase text-gray-500 font-bold">Роль</label>
                             <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]">
                                 <option value="STUDENT">Студент</option>
-                                <option value="CURATOR">Куратор</option>
                                 <option value="ADMIN">Админ</option>
                             </select>
                         </div>

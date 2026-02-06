@@ -6,7 +6,6 @@ import { HomeDashboard } from './components/HomeDashboard';
 import { Profile } from './components/Profile';
 import { LessonView } from './components/LessonView';
 import { AdminDashboard } from './components/AdminDashboard';
-import { CuratorDashboard } from './components/CuratorDashboard';
 import { Auth } from './components/Auth';
 import { Welcome } from './components/Welcome';
 import { SmartNav } from './components/SmartNav';
@@ -167,10 +166,7 @@ const App: React.FC = () => {
       // Poll as backup (every 10 seconds)
       const interval = setInterval(syncData, 10000);
       return () => clearInterval(interval);
-  }, []); // Remove dependencies to prevent loop, syncData is stable enough or handles its own deps via refs if needed, but here simple closure is fine for interval, for valid closure we might need to use refs or include syncData in deps if we wrap it in useCallback correctly.
-  // Actually, to avoid stale closures in setInterval, we should use a ref for the callback or depend on [syncData].
-  // But since syncData depends on state, it changes often.
-  // Let's rely on BroadcastChannel mostly and a slower poll.
+  }, []); 
   
   // Re-attach poll when syncData changes to ensure fresh closure
   useEffect(() => {
@@ -419,13 +415,6 @@ const App: React.FC = () => {
                     onUpdateUser={handleUpdateUser}
                     events={events}
                  />
-              )}
-
-              {activeTab === Tab.CURATOR_DASHBOARD && userProgress.role !== 'STUDENT' && (
-                  <CuratorDashboard 
-                      users={allUsers}
-                      modules={modules}
-                  />
               )}
 
               {activeTab === Tab.ADMIN_DASHBOARD && userProgress.role === 'ADMIN' && (

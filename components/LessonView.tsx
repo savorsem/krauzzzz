@@ -136,7 +136,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
           const result = XPService.askQuestion(userProgress, lesson.id);
           if (result.allowed) {
               onUpdateUser(result.user);
-              telegram.showAlert(`Вопрос отправлен куратору. Начислено ${result.xp} XP.`, 'Успешно');
+              telegram.showAlert(`Вопрос отправлен в Штаб. Начислено ${result.xp} XP.`, 'Успешно');
               setQuestionText('');
           } else {
               telegram.showAlert(result.message || 'Ошибка', 'Лимит исчерпан');
@@ -364,7 +364,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                         }}
                         onPause={() => setPlaying(false)}
                         onProgress={handleProgress}
-                        onDuration={setDuration}
+                        onDuration={(d: number) => setDuration(d)}
                         onEnded={() => setPlaying(false)}
                         config={{
                             youtube: {
@@ -465,7 +465,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                                     className="text-white/70 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-all"
                                 >
                                     {isFullscreen ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3.75 3.75a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010-1.5h4.5zm13.5 0a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 0a.75.75 0 010 1.5h4.5a.75.75 0 010-1.5h-4.5zM3.75 20.25a.75.75 0 01-.75-.75v-4.5a.75.75 0 011.5 0v4.5a.75.75 0 01-.75.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010 1.5h4.5zm15-4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 4.5a.75.75 0 010-1.5h4.5a.75.75 0 010 1.5h-4.5z" clipRule="evenodd" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3.75 3.75a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010-1.5h4.5zm13.5 0a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 0a.75.75 0 010 1.5h4.5a.75.75 0 010 1.5h-4.5zM3.75 20.25a.75.75 0 01-.75-.75v-4.5a.75.75 0 011.5 0v4.5a.75.75 0 01-.75.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010 1.5h4.5zm15-4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 4.5a.75.75 0 010-1.5h4.5a.75.75 0 010 1.5h-4.5z" clipRule="evenodd" /></svg>
                                     ) : (
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3 3a.75.75 0 01.75-.75h5.5a.75.75 0 010 1.5H4.5v4.75a.75.75 0 01-1.5 0V3zm16.25 1.5a.75.75 0 010-1.5h4.75a.75.75 0 01.75.75v5.5a.75.75 0 01-1.5 0V4.5h-4zm-4 16.25a.75.75 0 010 1.5h-5.5a.75.75 0 010-1.5h4.75v-4.75a.75.75 0 011.5 0v5.5zm10.5-5.5a.75.75 0 01.75.75v4.75a.75.75 0 01-.75.75h-5.5a.75.75 0 010-1.5h4.75v-4zm-15 0a.75.75 0 01.75-.75h4.75a.75.75 0 010 1.5H5.25v4a.75.75 0 01-1.5 0v-4.75z" clipRule="evenodd" /></svg>
                                     )}
