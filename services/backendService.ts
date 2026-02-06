@@ -39,18 +39,16 @@ class BackendService {
 
   async syncUser(localUser: UserProgress): Promise<UserProgress> {
     try {
-        // Try Airtable sync
-        const remoteUser = await airtable.syncUser(localUser);
+        // Perform bi-directional sync (which now also pushes Notebook/Habits/Goals to their own tables)
+        const syncedUser = await airtable.syncUser(localUser);
         
-        // If remote is newer, update local cache
-        if (remoteUser.lastSyncTimestamp && localUser.lastSyncTimestamp && remoteUser.lastSyncTimestamp > localUser.lastSyncTimestamp) {
-            Logger.info('Backend: Remote User Data is newer.');
-            // Also update the "allUsers" list cache if this user is in it
-            this.updateLocalUserCache(remoteUser);
-            return remoteUser;
+        // If the sync returned a different user object (newer from cloud), we update our local cache
+        if (JSON.stringify(syncedUser) !== JSON.stringify(localUser)) {
+             this.saveUserLocal(syncedUser);
+             return syncedUser;
         }
         
-        return remoteUser; // Or localUser if timestamps match/remote failed
+        return localUser;
     } catch (e) {
         Logger.warn('Backend: User Sync failed, using local.', e);
         return localUser;
@@ -58,18 +56,20 @@ class BackendService {
   }
 
   async saveUser(user: UserProgress) {
+      // Update timestamp to mark this as a fresh change
       const updatedUser = { ...user, lastSyncTimestamp: Date.now() };
       
-      // 1. Save Local
+      // 1. Save Local immediately for UI responsiveness
       this.saveUserLocal(updatedUser);
       
-      // 2. Sync Remote (Fire and forget, or handle error silently)
+      // 2. Sync Remote (Background)
+      // This will now ALSO trigger the syncing of Notebook, Habits, and Goals to their separate tables
       airtable.syncUser(updatedUser).then(synced => {
-          if (synced.airtableRecordId && !updatedUser.airtableRecordId) {
-              // If we just got an ID, update local again
+          // If remote sync returned something (e.g. recordId assigned), update local again
+          if (synced.airtableRecordId !== updatedUser.airtableRecordId) {
               this.saveUserLocal(synced);
           }
-      }).catch(e => console.error("BG Sync Error", e));
+      }).catch(e => Logger.error("BG Sync Error", e));
   }
 
   private saveUserLocal(user: UserProgress) {
@@ -86,15 +86,6 @@ class BackendService {
     
     Storage.set('allUsers', newAllUsers);
     this.notifySync(); 
-  }
-
-  private updateLocalUserCache(user: UserProgress) {
-      const allUsers = Storage.get<UserProgress[]>('allUsers', []);
-      const idx = allUsers.findIndex(u => u.telegramId === user.telegramId);
-      if (idx !== -1) {
-          allUsers[idx] = user;
-          Storage.set('allUsers', allUsers);
-      }
   }
 
   // --- CONFIG SYNC ---
@@ -175,8 +166,6 @@ class BackendService {
       }
 
       // 2. Push to Airtable (Naive Upsert for each item)
-      // Note: This does not handle deletions in Airtable if an item is removed from the list locally.
-      // A proper sync would require a diff, but for this scope, upserting active items is sufficient.
       try {
           for (const item of items) {
               switch (table) {
