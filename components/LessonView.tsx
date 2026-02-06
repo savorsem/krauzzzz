@@ -485,7 +485,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                 className={`
                     py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-2
                     ${!prevLesson 
-                        ? 'opacity-30 cursor-not-allowed text-text-secondary border border-border-color' 
+                        ? 'opacity-30 cursor-not-allowed text-text-secondary border border-border-color bg-surface/50' 
                         : 'bg-surface border border-border-color text-text-primary hover:border-[#6C5DD3] active:scale-95 shadow-sm'
                     }
                 `}
@@ -499,7 +499,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                 className={`
                     py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-2
                     ${!nextLesson 
-                        ? 'opacity-30 cursor-not-allowed text-text-secondary border border-border-color' 
+                        ? 'opacity-30 cursor-not-allowed text-text-secondary border border-border-color bg-surface/50' 
                         : 'bg-[#6C5DD3] text-white shadow-lg shadow-[#6C5DD3]/20 active:scale-95 hover:bg-[#5b4eb5]'
                     }
                 `}
