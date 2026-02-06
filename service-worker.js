@@ -1,8 +1,8 @@
-const CACHE_NAME = 'salespro-v1';
+
+const CACHE_NAME = 'salespro-v2';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/index.tsx',
   '/manifest.json'
 ];
 
@@ -43,6 +43,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // API or External requests - Network First or Network Only
+  if (event.request.url.includes('google') || event.request.url.includes('supabase')) {
+       return; // Let browser handle it
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       // Cache hit - return response
@@ -59,8 +64,8 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
 
-        // We only cache valid GET requests
-        if (event.request.method === 'GET') {
+        // We only cache valid GET requests to same origin or known assets
+        if (event.request.method === 'GET' && (event.request.url.startsWith(self.location.origin) || event.request.url.includes('cdn'))) {
              const responseToCache = response.clone();
              caches.open(CACHE_NAME).then((cache) => {
                 cache.put(event.request, responseToCache);
