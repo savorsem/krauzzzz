@@ -6,6 +6,7 @@ import { telegram } from '../services/telegramService';
 import { XPService, XP_RULES } from '../services/xpService';
 import { Storage } from '../services/storage';
 import { verifyStoryScreenshot } from '../services/geminiService';
+import { Auth } from './Auth';
 
 interface ProfileProps {
   userProgress: UserProgress;
@@ -14,11 +15,12 @@ interface ProfileProps {
   onUpdateUser: (updatedUser: Partial<UserProgress>) => void;
   events: CalendarEvent[];
   activeTabOverride?: string;
+  onLogin: (data: any) => void;
 }
 
 type ProfileTab = 'STATS' | 'CALENDAR' | 'RATING' | 'SETTINGS';
 
-export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUsers, onUpdateUser, events, activeTabOverride }) => {
+export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUsers, onUpdateUser, events, activeTabOverride, onLogin }) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>((activeTabOverride as ProfileTab) || 'STATS');
   
   // Parallax Effect State
@@ -49,6 +51,15 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
   const appConfig = Storage.get<AppConfig>('appConfig', {} as any);
   const inviteBase = appConfig?.integrations?.inviteBaseUrl || 'https://t.me/SalesProBot?start=ref_';
   const inviteLink = `${inviteBase}${userProgress.telegramUsername || 'unknown'}`;
+
+  // If not authenticated, show Auth component within Profile tab
+  if (!userProgress.isAuthenticated) {
+      return (
+          <div className="min-h-full">
+              <Auth onLogin={onLogin} existingUsers={allUsers} />
+          </div>
+      );
+  }
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!avatarRef.current) return;

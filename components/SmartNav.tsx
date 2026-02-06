@@ -36,12 +36,13 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   ];
 
   const isAdminView = activeTab === Tab.ADMIN_DASHBOARD;
+  // Define what counts as a "Main Tab" (where the bottom menu is shown)
   const isMainTab = [Tab.HOME, Tab.PROFILE, Tab.ADMIN_DASHBOARD].includes(activeTab);
   
-  // Logic: Show Back Button if in Lesson OR in a Sub-tab (Arena, Materials, etc)
+  // Logic: Show Back Button if in Lesson OR in a Sub-feature (Arena, Materials, Notebook, etc)
   const showBackButton = isLessonActive || !isMainTab;
 
-  // Auto-scroll admin tabs
+  // Auto-expand admin tabs only when on Admin Dashboard
   useEffect(() => {
     if (isAdminView) {
         setIsExpanded(true);
@@ -61,6 +62,7 @@ export const SmartNav: React.FC<SmartNavProps> = ({
       if (isLessonActive) {
           onExitLesson();
       } else {
+          // Return to Home from sub-features like Arena/Notebook
           setActiveTab(Tab.HOME);
       }
   };
@@ -96,7 +98,7 @@ export const SmartNav: React.FC<SmartNavProps> = ({
     <div className="fixed bottom-6 left-0 right-0 z-[100] flex justify-center pointer-events-none px-4" style={{ paddingBottom: 'var(--safe-bottom)' }}>
       <div 
         className={`
-          pointer-events-auto relative island-blur bg-[#0F1115]/90 overflow-hidden
+          pointer-events-auto relative island-blur bg-[#0F1115]/95 overflow-hidden
           transition-all duration-500 cubic-bezier(0.23, 1, 0.32, 1) shadow-2xl border border-white/5
           ${isExpanded ? 'w-full max-w-[380px] rounded-[2.2rem] p-1.5' : 'w-auto px-1.5 py-1.5 rounded-full'}
         `}
@@ -110,16 +112,20 @@ export const SmartNav: React.FC<SmartNavProps> = ({
             <div 
                 className={`
                     w-full overflow-x-auto no-scrollbar flex gap-1 mb-1 transition-all duration-500 ease-out origin-top
-                    ${isExpanded ? 'max-h-[80px] opacity-100 py-1 scale-100' : 'max-h-0 opacity-0 py-0 scale-95'}
+                    ${isExpanded ? 'max-h-[80px] opacity-100 py-1 scale-100' : 'max-h-0 opacity-0 py-0 scale-95 pointer-events-none'}
                 `}
                 ref={scrollRef}
             >
                 {adminLinks.map((link) => (
                   <button
                     key={link.id}
-                    onClick={() => { telegram.haptic('light'); setAdminSubTab(link.id); }}
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        telegram.haptic('light'); 
+                        setAdminSubTab(link.id); 
+                    }}
                     className={`
-                        flex-shrink-0 flex flex-col items-center justify-center w-[70px] h-[60px] rounded-2xl transition-all border
+                        flex-shrink-0 flex flex-col items-center justify-center w-[70px] h-[60px] rounded-2xl transition-all border active:scale-95 mx-0.5
                         ${adminSubTab === link.id 
                             ? 'bg-[#6C5DD3] border-[#6C5DD3] text-white shadow-lg shadow-[#6C5DD3]/20' 
                             : 'bg-white/5 border-transparent text-white/40 hover:bg-white/10 hover:text-white'}
@@ -141,7 +147,7 @@ export const SmartNav: React.FC<SmartNavProps> = ({
                     label="Главная"
                 />
                 
-                {/* Separator / Decoration */}
+                {/* Separator */}
                 {!isExpanded && <div className="w-px h-8 bg-white/5 mx-1"></div>}
 
                 <NavButton 

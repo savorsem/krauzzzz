@@ -52,8 +52,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
         if (telegram.isAvailable && telegram.user) {
             const tgUser = telegram.user;
             const tgId = tgUser.id.toString();
-            setLoadingText('БИОМЕТРИЧЕСКАЯ ВЕРИФИКАЦИЯ...');
-            await new Promise(r => setTimeout(r, 800));
+            setLoadingText('АВТОМАТИЧЕСКАЯ ИДЕНТИФИКАЦИЯ...');
+            await new Promise(r => setTimeout(r, 600));
 
             let user = existingUsers.find(u => u.telegramId === tgId);
             if (!user && tgUser.username) {
@@ -243,7 +243,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
   };
 
   const renderChecking = () => (
-      <div className="flex flex-col items-center justify-center animate-pulse">
+      <div className="flex flex-col items-center justify-center animate-pulse py-20">
            <div className="w-16 h-16 border-4 border-[#6C5DD3] border-t-transparent rounded-full animate-spin mb-4"></div>
            <p className="text-[#6C5DD3] font-black text-xs uppercase tracking-[0.2em]">{loadingText || 'ПОИСК ПРОФИЛЯ...'}</p>
       </div>
@@ -252,8 +252,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
   const renderAuthForm = () => (
     <div className={`w-full max-w-sm mx-auto animate-fade-in ${isShake ? 'animate-shake' : ''}`}>
        <div className="mb-10 text-center">
-           <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">АВТОРИЗАЦИЯ</h2>
-           <p className="text-slate-500 dark:text-white/50 text-sm font-medium">Вход в систему</p>
+           <div className="w-16 h-16 bg-[#6C5DD3]/10 rounded-2xl flex items-center justify-center text-3xl mb-4 mx-auto text-[#6C5DD3] border border-[#6C5DD3]/20 shadow-lg">
+               🛡️
+           </div>
+           <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">ДОСТУП</h2>
+           <p className="text-slate-500 dark:text-white/50 text-sm font-medium">Для доступа к полному функционалу и сохранению прогресса войдите в систему.</p>
        </div>
 
        <div className="bg-white dark:bg-[#1F2128] p-1.5 rounded-2xl flex relative mb-8 ring-1 ring-slate-200 dark:ring-white/10 shadow-sm">
@@ -376,14 +379,14 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
   );
 
   const renderDossier = () => (
-      <div className={`w-full max-w-sm mx-auto animate-slide-in flex flex-col h-[85vh] ${isShake ? 'animate-shake' : ''}`}>
+      <div className={`w-full max-w-sm mx-auto animate-slide-in flex flex-col h-[70vh] ${isShake ? 'animate-shake' : ''}`}>
            <div className="flex-shrink-0 mb-6 text-center">
               <div className="flex justify-center gap-2 mb-4">
                   {[0, 1, 2].map(i => (
                       <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i <= dossierStep ? 'w-8 bg-[#6C5DD3]' : 'w-4 bg-slate-200 dark:bg-white/10'}`}></div>
                   ))}
               </div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase">
                   {dossierStep === 0 ? 'Физические данные' : dossierStep === 1 ? 'Статус и Опыт' : 'Цели и Мотивация'}
               </h2>
           </div>
@@ -514,8 +517,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
   );
 
   const renderScanning = () => (
-      <div className="flex flex-col items-center justify-center w-full h-[60vh] animate-fade-in">
-           <div className="relative w-64 h-64 mb-10">
+      <div className="flex flex-col items-center justify-center w-full py-10 animate-fade-in">
+           <div className="relative w-48 h-48 mb-8">
                 <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-[#1F2128]"></div>
                 <div className="absolute inset-0 rounded-full border-4 border-t-[#6C5DD3] border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
                 
@@ -537,7 +540,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
   );
 
   const renderFinalizing = () => (
-    <div className="flex flex-col items-center justify-center w-full h-[60vh] animate-fade-in">
+    <div className="flex flex-col items-center justify-center w-full py-20 animate-fade-in">
         <div className="w-24 h-24 mb-8 relative">
              <div className="absolute inset-0 bg-[#6C5DD3] rounded-full blur-[30px] opacity-40 animate-pulse"></div>
              <svg className="animate-spin text-slate-900 dark:text-white w-full h-full" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -546,12 +549,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
              </svg>
         </div>
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{loadingText}</h3>
-        <p className="text-slate-400 dark:text-white/40 text-xs uppercase tracking-widest">Не закрывайте приложение</p>
+        <p className="text-slate-400 dark:text-white/40 text-xs uppercase tracking-widest">Создание персонажа...</p>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-slate-50 dark:bg-[#050505] text-slate-900 dark:text-white p-6 flex items-center justify-center z-[500] safe-area-padding transition-colors duration-300">
+    <div className="w-full h-full min-h-[calc(100vh-140px)] flex flex-col items-center justify-center p-4">
          {step === 'CHECKING' && renderChecking()}
          {step === 'AUTH_FORM' && renderAuthForm()}
          {step === 'IDENTITY' && renderIdentity()}

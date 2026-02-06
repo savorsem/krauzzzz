@@ -6,8 +6,6 @@ import { HomeDashboard } from './components/HomeDashboard';
 import { Profile } from './components/Profile';
 import { LessonView } from './components/LessonView';
 import { AdminDashboard } from './components/AdminDashboard';
-import { Auth } from './components/Auth';
-import { Welcome } from './components/Welcome';
 import { SmartNav } from './components/SmartNav';
 import { Storage } from './services/storage';
 import { telegram } from './services/telegramService';
@@ -48,7 +46,7 @@ const DEFAULT_CONFIG: AppConfig = {
 };
 
 const DEFAULT_USER: UserProgress = {
-  name: '',
+  name: 'Новобранец',
   role: 'STUDENT',
   isAuthenticated: false,
   xp: 0,
@@ -72,7 +70,6 @@ const App: React.FC = () => {
   const [adminSubTab, setAdminSubTab] = useState<'OVERVIEW' | 'COURSE' | 'MATERIALS' | 'STREAMS' | 'USERS' | 'SETTINGS' | 'ARENA' | 'CALENDAR'>('OVERVIEW');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [showWelcome, setShowWelcome] = useState(true);
 
   // Initialize from LocalStorage (Fast Load)
   const [appConfig, setAppConfig] = useState<AppConfig>(() => Storage.get<AppConfig>('appConfig', DEFAULT_CONFIG));
@@ -190,10 +187,6 @@ const App: React.FC = () => {
   }, [userProgress.theme]);
 
   useEffect(() => {
-    if (userProgress.isAuthenticated) setShowWelcome(false);
-  }, [userProgress.isAuthenticated]);
-
-  useEffect(() => {
     Storage.set('progress', userProgress);
     const timer = setTimeout(() => {
         if (userProgress.isAuthenticated) Backend.saveUser(userProgress);
@@ -225,7 +218,6 @@ const App: React.FC = () => {
   const handleLogin = async (userData: any) => {
     const tempUser = { ...userProgress, ...userData, isAuthenticated: true };
     setUserProgress(tempUser);
-    setShowWelcome(false);
     Backend.saveUser(tempUser);
     addToast('success', 'С возвращением, боец!');
   };
@@ -233,7 +225,6 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setUserProgress({ ...DEFAULT_USER });
     setActiveTab(Tab.HOME);
-    setShowWelcome(true);
   };
 
   const handleUpdateUser = (data: Partial<UserProgress>) => setUserProgress(prev => ({ ...prev, ...data }));
@@ -277,8 +268,7 @@ const App: React.FC = () => {
   const handleClearNotifications = () => {
       Storage.set('local_notifications', []);
       setNotifications([]);
-      // Need to tell backend to clear too in a real app, here we just clear local
-      Backend.saveCollection('notifications', []); // Hack to trigger sync
+      Backend.saveCollection('notifications', []); 
       addToast('info', 'История очищена');
   };
   
@@ -325,18 +315,9 @@ const App: React.FC = () => {
       addToast('success', `+${amount} XP`);
   };
 
-  if (!userProgress.isAuthenticated) {
-    if (showWelcome) return <Welcome onStart={() => setShowWelcome(false)} />;
-    return <Auth onLogin={handleLogin} existingUsers={allUsers} />;
-  }
-
   return (
     <div className="flex flex-col h-[100dvh] bg-body text-text-primary transition-colors duration-300 overflow-hidden">
       
-      {/* 
-        AUTONOMOUS SYSTEM AGENT 
-        Now injected with the ability to modify the app state directly
-      */}
       <SystemHealthAgent 
           config={appConfig.systemAgent} 
           user={userProgress}
@@ -414,6 +395,7 @@ const App: React.FC = () => {
                     allUsers={allUsers}
                     onUpdateUser={handleUpdateUser}
                     events={events}
+                    onLogin={handleLogin}
                  />
               )}
 
