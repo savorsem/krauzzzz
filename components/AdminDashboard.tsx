@@ -42,6 +42,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<{moduleId: string, lesson: Lesson} | null>(null);
 
+  // --- LOCAL STATE FOR NOTIFICATIONS (Moved from renderSettings to fix Hook error #310) ---
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifMsg, setNotifMsg] = useState('');
+  const [notifType, setNotifType] = useState<AppNotification['type']>('INFO');
+
   // --- USERS MANAGEMENT ---
   const renderUsers = () => {
       const handleUserSave = (u: UserProgress) => {
@@ -424,10 +429,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const maintenanceMode = config?.features?.maintenanceMode || false;
       const appName = config?.appName || 'SalesPro';
 
-      const [notifTitle, setNotifTitle] = useState('');
-      const [notifMsg, setNotifMsg] = useState('');
-      const [notifType, setNotifType] = useState<AppNotification['type']>('INFO');
-
       const sendNotif = () => {
           if(!notifTitle || !notifMsg) return;
           onSendBroadcast({
@@ -478,10 +479,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="bg-white dark:bg-[#14161B] p-5 rounded-[2rem] border border-slate-200 dark:border-white/5 space-y-4">
                   <h3 className="font-black text-slate-900 dark:text-white uppercase">Конфигурация</h3>
+                  
+                  {/* App Name */}
                   <div>
                       <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Название Приложения</label>
                       <input value={appName} onChange={(e) => onUpdateConfig({...config, appName: e.target.value})} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold text-slate-900 dark:text-white" />
                   </div>
+
+                  {/* System Instruction */}
+                  <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Системная Инструкция (AI Persona)</label>
+                      <textarea 
+                          value={config.systemInstruction || ''} 
+                          onChange={(e) => onUpdateConfig({...config, systemInstruction: e.target.value})} 
+                          className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-medium text-slate-900 dark:text-white h-32 resize-none border border-transparent focus:border-[#6C5DD3] outline-none"
+                          placeholder="Ты — Командир..."
+                      />
+                  </div>
+
+                  {/* Primary Color */}
+                  <div>
+                       <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Акцентный Цвет</label>
+                       <div className="flex items-center gap-3">
+                          <input 
+                              type="color" 
+                              value={config.primaryColor || '#6C5DD3'}
+                              onChange={(e) => onUpdateConfig({...config, primaryColor: e.target.value})}
+                              className="h-10 w-10 rounded-lg border-none cursor-pointer bg-transparent"
+                          />
+                          <input 
+                              type="text"
+                              value={config.primaryColor || '#6C5DD3'}
+                              onChange={(e) => onUpdateConfig({...config, primaryColor: e.target.value})}
+                              className="flex-1 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold text-slate-900 dark:text-white border border-transparent focus:border-[#6C5DD3] outline-none"
+                          />
+                       </div>
+                  </div>
+
                   <div className="flex items-center justify-between pt-2">
                       <span className="text-sm font-bold text-slate-900 dark:text-white">Режим обслуживания</span>
                       <div onClick={() => onUpdateConfig({...config, features: {...config.features, maintenanceMode: !maintenanceMode}})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${maintenanceMode ? 'bg-[#6C5DD3]' : 'bg-slate-300 dark:bg-white/10'}`}>
