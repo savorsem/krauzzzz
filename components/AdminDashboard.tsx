@@ -45,6 +45,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   modules, onUpdateModules, 
   scenarios, onUpdateScenarios,
   users, onUpdateUsers,
+  currentUser,
   activeSubTab, onSendBroadcast, notifications, addToast
 }) => {
 
@@ -102,8 +103,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const toggleUserRole = (user: UserProgress) => {
+      // Prevent changing own role
+      if (user.telegramId === currentUser.telegramId || user.name === currentUser.name) {
+           addToast('error', 'Нельзя изменить роль самому себе');
+           telegram.haptic('error');
+           return;
+      }
+
       const newRole = user.role === 'ADMIN' ? 'STUDENT' : 'ADMIN';
-      const updatedUsers = users.map(u => u.telegramId === user.telegramId ? { ...u, role: newRole } : u);
+      
+      // Confirmation Dialog
+      if (!window.confirm(`Вы уверены, что хотите назначить пользователю ${user.name} роль ${newRole}?`)) {
+          return;
+      }
+
+      const updatedUsers = users.map(u => (u.telegramId === user.telegramId && u.name === user.name) ? { ...u, role: newRole } : u);
       onUpdateUsers(updatedUsers);
       telegram.haptic('selection');
       addToast('info', `Роль ${user.name} изменена на ${newRole}`);
@@ -468,21 +482,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  
                  {filteredUsers.length === 0 && <p className="text-center text-text-secondary text-xs uppercase pt-4">Пользователи не найдены</p>}
 
-                 {filteredUsers.map((user) => (
-                     <div key={user.telegramId || user.name} className="bg-surface border border-border-color p-5 rounded-[2rem] flex items-center gap-4">
+                 {filteredUsers.map((user) => {
+                     const isCurrentUser = user.telegramId === currentUser.telegramId || user.name === currentUser.name;
+                     return (
+                     <div key={user.telegramId || user.name} className={`bg-surface border border-border-color p-5 rounded-[2rem] flex items-center gap-4 ${isCurrentUser ? 'ring-2 ring-[#6C5DD3]/20 bg-[#6C5DD3]/5' : ''}`}>
                          <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}`} className="w-10 h-10 rounded-full object-cover bg-body" />
                          <div className="flex-1 min-w-0">
-                             <h4 className="font-bold text-text-primary truncate">{user.name}</h4>
+                             <h4 className="font-bold text-text-primary truncate flex items-center gap-2">
+                                 {user.name}
+                                 {isCurrentUser && <span className="text-[8px] bg-[#6C5DD3] text-white px-1.5 py-0.5 rounded uppercase tracking-widest">Вы</span>}
+                             </h4>
                              <p className="text-[10px] font-black text-text-secondary uppercase">{user.role} • LVL {user.level}</p>
                          </div>
                          <button 
                             onClick={() => toggleUserRole(user)}
-                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border ${user.role === 'ADMIN' ? 'bg-[#6C5DD3] text-white border-transparent' : 'border-border-color text-text-secondary'}`}
+                            disabled={isCurrentUser}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${user.role === 'ADMIN' ? 'bg-[#6C5DD3] text-white border-transparent' : 'border-border-color text-text-secondary'} ${isCurrentUser ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
                          >
                              {user.role}
                          </button>
                      </div>
-                 ))}
+                 )})}
              </div>
         )}
 
