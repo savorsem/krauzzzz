@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tab, UserProgress, Lesson, AppConfig, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification } from './types';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from './constants';
 import { HomeDashboard } from './components/HomeDashboard';
@@ -86,58 +86,51 @@ const App: React.FC = () => {
   const [userProgress, setUserProgress] = useState<UserProgress>(() => Storage.get<UserProgress>('progress', DEFAULT_USER));
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
+  // Ref to track last notification count for alerts
+  const prevNotifCount = useRef(0);
+
   const activeLesson = selectedLessonId ? modules.flatMap(m => m.lessons).find(l => l.id === selectedLessonId) : null;
   const activeModule = activeLesson ? modules.find(m => m.lessons.some(l => l.id === activeLesson.id)) : null;
 
-  // --- INITIAL SYSTEM SYNC (CONFIG) ---
+  // --- AUTOMATIC SYNCHRONIZATION (POLLING) ---
   useEffect(() => {
-      const fetchConfig = async () => {
+      const syncData = async () => {
+          // 1. Fetch Global Config
           const remoteConfig = await Backend.fetchGlobalConfig(appConfig);
           if (JSON.stringify(remoteConfig) !== JSON.stringify(appConfig)) {
               setAppConfig(remoteConfig);
               Storage.set('appConfig', remoteConfig);
           }
-      };
-      fetchConfig();
-  }, []);
 
-  // --- USER DATA SYNC ---
-  useEffect(() => {
-      const initSync = async () => {
-          // 1. Sync User Profile
-          if (userProgress.isAuthenticated) {
-              const syncedUser = await Backend.syncUser(userProgress);
-              setUserProgress(syncedUser);
-          }
-
-          // 2. Sync Content (Modules, Materials, etc.)
-          const cloudContent = await Backend.fetchAllContent();
-          if (cloudContent) {
-              setModules(cloudContent.modules);
-              setMaterials(cloudContent.materials);
-              setStreams(cloudContent.streams);
-              setEvents(cloudContent.events);
-              setScenarios(cloudContent.scenarios);
-              
-              // Update local cache
-              Storage.set('courseModules', cloudContent.modules);
-              Storage.set('materials', cloudContent.materials);
-              Storage.set('streams', cloudContent.streams);
-              Storage.set('events', cloudContent.events);
-              Storage.set('scenarios', cloudContent.scenarios);
-          }
-
-          // 3. Sync Users List (for Leaderboard)
-          const leaderboard = await Backend.getLeaderboard();
-          setAllUsers(leaderboard);
-
-          // 4. Fetch Notifications
+          // 2. Fetch Notifications
           const notifs = await Backend.fetchNotifications();
+          if (notifs.length > prevNotifCount.current) {
+              // New notification detected!
+              const latest = notifs[notifs.length - 1];
+              if (latest && prevNotifCount.current > 0) { // Don't buzz on init load
+                  addToast(latest.type === 'ALERT' ? 'error' : 'info', latest.title);
+              }
+          }
+          prevNotifCount.current = notifs.length;
           setNotifications(notifs.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          
+          // 3. Sync User Role (Check if admin changed my role)
+          if (userProgress.isAuthenticated) {
+              const freshUser = await Backend.syncUser(userProgress);
+              if (freshUser.role !== userProgress.role) {
+                  setUserProgress(prev => ({ ...prev, role: freshUser.role }));
+                  addToast('info', `Ваша роль обновлена: ${freshUser.role}`);
+              }
+          }
       };
 
-      initSync();
-  }, [userProgress.isAuthenticated]);
+      // Initial Call
+      syncData();
+
+      // Poll every 10 seconds
+      const interval = setInterval(syncData, 10000);
+      return () => clearInterval(interval);
+  }, [userProgress.isAuthenticated, appConfig]); // Dependencies slightly loose to allow background polling
 
   // --- THEME & PERSISTENCE ---
   useEffect(() => {
@@ -207,6 +200,27 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = (data: Partial<UserProgress>) => setUserProgress(prev => ({ ...prev, ...data }));
+
+  // Called by AdminDashboard to update the list of ALL users. 
+  // IMPORTANT: We must also check if the *current* user is in this list and update self if needed.
+  const handleUpdateAllUsers = (newUsers: UserProgress[]) => {
+      setAllUsers(newUsers);
+      Storage.set('allUsers', newUsers);
+      
+      // Check if current user was updated (e.g. Role change by Admin who is also me, or just staying in sync)
+      const meInList = newUsers.find(u => u.telegramId === userProgress.telegramId);
+      if (meInList) {
+          // If critical fields changed, update local session
+          if (meInList.role !== userProgress.role || meInList.level !== userProgress.level) {
+              setUserProgress(prev => ({
+                  ...prev,
+                  role: meInList.role,
+                  level: meInList.level,
+                  xp: meInList.xp
+              }));
+          }
+      }
+  };
 
   const handleCompleteLesson = (lessonId: string, xpBonus: number) => {
       const newXp = userProgress.xp + xpBonus;
@@ -341,7 +355,7 @@ const App: React.FC = () => {
                     scenarios={scenarios}
                     onUpdateScenarios={updateScenarios}
                     users={allUsers}
-                    onUpdateUsers={(u) => { setAllUsers(u); Storage.set('allUsers', u); }}
+                    onUpdateUsers={handleUpdateAllUsers}
                     currentUser={userProgress}
                     onUpdateCurrentUser={handleUpdateUser}
                     activeSubTab={adminSubTab}
