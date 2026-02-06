@@ -6,11 +6,11 @@ export interface Lesson {
   title: string;
   description: string;
   content: string;
-  xpReward: number;
+  xpReward: number; // Base reward (replaced by dynamic logic in many cases)
   homeworkType: HomeworkType;
   homeworkTask: string;
   aiGradingInstruction: string;
-  videoUrl?: string; // Added per-lesson video support
+  videoUrl?: string;
 }
 
 export type ModuleCategory = 'SALES' | 'PSYCHOLOGY' | 'TACTICS' | 'GENERAL';
@@ -47,7 +47,8 @@ export interface NotebookEntry {
   id: string;
   text: string;
   isChecked: boolean; // For habits/checklists
-  type: 'HABIT' | 'GOAL' | 'IDEA' | 'NOTE';
+  type: 'HABIT' | 'GOAL' | 'IDEA' | 'NOTE' | 'GRATITUDE'; // Added GRATITUDE
+  date: string; // To track daily limits
 }
 
 export type UserRole = 'STUDENT' | 'CURATOR' | 'ADMIN';
@@ -77,8 +78,18 @@ export interface UserDossier {
   workExperience?: string;
   incomeGoal?: string;
   courseExpectations?: string;
-  courseGoals?: string; // What they want to get
-  motivation?: string; // Why they joined
+  courseGoals?: string; 
+  motivation?: string; 
+}
+
+// Stats tracking for XP rules
+export interface UserStats {
+    storiesPosted: number; // Max 5 per course
+    questionsAsked: Record<string, number>; // LessonID -> count (Max 5 per lesson)
+    referralsCount: number;
+    streamsVisited: string[]; // IDs of visited streams
+    homeworksSpeed: Record<string, 'FAST' | 'SLOW' | 'POOR'>; // LessonID -> speed/quality metric
+    initiativesCount: number;
 }
 
 export interface UserProgress {
@@ -96,7 +107,7 @@ export interface UserProgress {
   completedLessonIds: string[];
   submittedHomeworks: string[];
   
-  chatHistory: ChatMessage[];
+  chatHistory: ChatMessage[]; // Kept for legacy compatibility but unused in UI
   originalPhotoBase64?: string;
   avatarUrl?: string;
   
@@ -109,12 +120,15 @@ export interface UserProgress {
   instagram?: string;
   aboutMe?: string;
   inviteLink?: string;
-  dossier?: UserDossier; // New field for the questionnaire
+  dossier?: UserDossier;
   
   notifications: NotificationSettings;
   
-  // New: User Notebook Data
+  // Notebook
   notebook: NotebookEntry[];
+
+  // New Detailed Stats for Rating System
+  stats: UserStats;
 }
 
 export interface AppIntegrations {
@@ -122,7 +136,6 @@ export interface AppIntegrations {
   googleDriveFolderId?: string;
   crmWebhookUrl?: string;
   aiModelVersion?: string;
-  // Supabase Config
   supabaseUrl?: string;
   supabaseAnonKey?: string;
 }
@@ -135,7 +148,6 @@ export interface AppFeatures {
   publicLeaderboard: boolean;
 }
 
-// --- NEW AI TYPES ---
 export type AIProviderId = 'GOOGLE_GEMINI' | 'OPENAI_GPT4' | 'ANTHROPIC_CLAUDE' | 'LOCAL_LLAMA' | 'GROQ' | 'OPENROUTER';
 
 export interface AIConfig {
@@ -155,8 +167,8 @@ export interface AIConfig {
 
 export interface SystemAgentConfig {
     enabled: boolean;
-    autoFix: boolean; // Automatically attempt to fix errors
-    monitoringInterval: number; // ms
+    autoFix: boolean; 
+    monitoringInterval: number;
     sensitivity: 'LOW' | 'HIGH';
 }
 
@@ -167,7 +179,6 @@ export interface AppConfig {
   systemInstruction: string;
   integrations: AppIntegrations;
   features: AppFeatures;
-  // New Fields
   aiConfig: AIConfig;
   systemAgent: SystemAgentConfig;
 }
@@ -188,14 +199,13 @@ export interface CalendarEvent {
 }
 
 export enum Tab {
-  HOME = 'HOME', // New Dashboard
-  MODULES = 'MODULES', // 1. Learning
-  MATERIALS = 'MATERIALS', // 2. Extra Materials
-  RATING = 'RATING', // 3. Leaderboard
-  ARENA = 'ARENA', // 4. Trainings
-  STREAMS = 'STREAMS', // 5. Live Streams
-  NOTEBOOK = 'NOTEBOOK', // 6. Notepad
-  CHAT = 'CHAT',
+  HOME = 'HOME', 
+  MODULES = 'MODULES', 
+  MATERIALS = 'MATERIALS', 
+  RATING = 'RATING', 
+  ARENA = 'ARENA', 
+  STREAMS = 'STREAMS', 
+  NOTEBOOK = 'NOTEBOOK', 
   PROFILE = 'PROFILE',
   CURATOR_DASHBOARD = 'CURATOR_DASHBOARD',
   ADMIN_DASHBOARD = 'ADMIN_DASHBOARD'

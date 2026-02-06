@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Tab, UserProgress, Lesson, UserRole, AppConfig, Module, Material, Stream, CalendarEvent, ArenaScenario } from './types';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from './constants';
 import { HomeDashboard } from './components/HomeDashboard';
-import { ChatAssistant } from './components/ChatAssistant';
 import { Profile } from './components/Profile';
 import { LessonView } from './components/LessonView';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -20,6 +19,7 @@ import { MaterialsView } from './components/MaterialsView';
 import { StreamsView } from './components/StreamsView';
 import { SystemHealthAgent } from './components/SystemHealthAgent';
 import { Backend } from './services/backendService';
+import { XPService } from './services/xpService';
 
 const DEFAULT_CONFIG: AppConfig = {
   appName: 'SalesPro: 300 Spartans',
@@ -64,7 +64,8 @@ const DEFAULT_USER: UserProgress = {
     deadlineReminders: true,
     chatNotifications: true
   },
-  notebook: []
+  notebook: [],
+  stats: XPService.getInitStats()
 };
 
 const App: React.FC = () => {
@@ -118,6 +119,26 @@ const App: React.FC = () => {
 
   const handleLogin = async (userData: any) => {
     const tempUser = { ...userProgress, ...userData, isAuthenticated: true };
+    
+    // Check Referral
+    if (userData.isRegistration && window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
+        const startParam = window.Telegram.WebApp.initDataUnsafe.start_param;
+        if (startParam.startsWith('ref_')) {
+            const referrerUsername = startParam.replace('ref_', '');
+            // Find Referrer in allUsers (Simulated, usually needs backend)
+            const referrer = allUsers.find(u => u.telegramUsername?.toLowerCase() === referrerUsername.toLowerCase());
+            
+            if (referrer) {
+                const result = XPService.addReferral(referrer);
+                // Update local list of users immediately
+                const updatedUsers = allUsers.map(u => u.telegramUsername === referrer.telegramUsername ? result.user : u);
+                setAllUsers(updatedUsers);
+                Backend.saveUser(result.user); // Save to backend
+                telegram.showAlert(`Вас пригласил ${referrer.name}. Бонус начислен!`, 'Referral');
+            }
+        }
+    }
+
     setUserProgress(tempUser);
     setShowWelcome(false);
     addToast('success', 'С возвращением, боец!');
@@ -131,10 +152,9 @@ const App: React.FC = () => {
 
   const handleUpdateUser = (data: Partial<UserProgress>) => setUserProgress(prev => ({ ...prev, ...data }));
 
-  const handleCompleteLesson = (lessonId: string) => {
-      const lesson = modules.flatMap(m => m.lessons).find(l => l.id === lessonId);
-      const xpReward = lesson?.xpReward || 0;
-      const newXp = userProgress.xp + xpReward;
+  const handleCompleteLesson = (lessonId: string, xpBonus: number) => {
+      // XP Bonus already calculated by XPService in LessonView
+      const newXp = userProgress.xp + xpBonus;
       const newLevel = Math.floor(newXp / 1000) + 1;
       
       setUserProgress(prev => ({
@@ -143,8 +163,21 @@ const App: React.FC = () => {
           level: newLevel,
           completedLessonIds: [...prev.completedLessonIds, lessonId]
       }));
-      addToast('success', `Задание выполнено! +${xpReward} XP`);
+      addToast('success', `Урок пройден! +${xpBonus} XP`);
       setSelectedLessonId(null);
+  };
+
+  // Helper to handle simple XP awards from sub-components
+  const handleXPEarned = (amount: number) => {
+      setUserProgress(prev => {
+          const newXp = prev.xp + amount;
+          return {
+              ...prev,
+              xp: newXp,
+              level: Math.floor(newXp / 1000) + 1
+          };
+      });
+      addToast('success', `+${amount} XP`);
   };
 
   if (!userProgress.isAuthenticated) {
@@ -169,6 +202,8 @@ const App: React.FC = () => {
              onComplete={handleCompleteLesson}
              onBack={() => setSelectedLessonId(null)}
              parentModule={activeModule}
+             userProgress={userProgress}
+             onUpdateUser={handleUpdateUser}
            />
         ) : (
            <>
@@ -187,14 +222,6 @@ const App: React.FC = () => {
                  />
               )}
               
-              {activeTab === Tab.CHAT && (
-                 <ChatAssistant 
-                   history={userProgress.chatHistory}
-                   onUpdateHistory={(h) => handleUpdateUser({ chatHistory: h })}
-                   systemInstruction={appConfig.systemInstruction}
-                 />
-              )}
-
               {activeTab === Tab.ARENA && <SalesArena />}
               
               {activeTab === Tab.NOTEBOOK && (
@@ -202,6 +229,7 @@ const App: React.FC = () => {
                     entries={userProgress.notebook} 
                     onUpdate={(e) => handleUpdateUser({ notebook: e })} 
                     onBack={() => setActiveTab(Tab.HOME)} 
+                    onXPEarned={handleXPEarned}
                  />
               )}
 
@@ -210,7 +238,12 @@ const App: React.FC = () => {
               )}
 
               {activeTab === Tab.STREAMS && (
-                  <StreamsView streams={streams} onBack={() => setActiveTab(Tab.HOME)} />
+                  <StreamsView 
+                    streams={streams} 
+                    onBack={() => setActiveTab(Tab.HOME)} 
+                    userProgress={userProgress}
+                    onUpdateUser={handleUpdateUser}
+                  />
               )}
 
               {activeTab === Tab.PROFILE && (

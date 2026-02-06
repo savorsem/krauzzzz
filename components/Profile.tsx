@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProgress, CalendarEvent, UserRole } from '../types';
 import { CalendarView } from './CalendarView';
 import { telegram } from '../services/telegramService';
+import { XPService, XP_RULES } from '../services/xpService';
 
 interface ProfileProps {
   userProgress: UserProgress;
@@ -95,12 +96,27 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
   const copyInviteLink = () => {
       navigator.clipboard.writeText(inviteLink);
       telegram.haptic('selection');
-      // In a real app, use a proper Toast here
-      alert('Ссылка скопирована!'); 
+      telegram.showAlert('Ссылка скопирована! Отправь другу.', 'Успех');
   };
 
   const toggleNotification = (key: keyof typeof editNotifications) => {
     setEditNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleShareStory = () => {
+      // Simulate share action
+      telegram.haptic('medium');
+      // In a real TWA, we might use WebApp.openTelegramLink to share a story
+      
+      setTimeout(() => {
+          const result = XPService.shareStory(userProgress);
+          if (result.allowed) {
+              onUpdateUser(result.user);
+              telegram.showAlert(`Репост засчитан! +${result.xp} XP`, 'Успех');
+          } else {
+              telegram.showAlert(result.message || 'Лимит', 'Внимание');
+          }
+      }, 500);
   };
 
   // --- SUB-COMPONENTS ---
@@ -155,8 +171,8 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
   const renderLeaderboard = () => {
       // Merge current user with allUsers if not present (Mock Data included for visual check)
       const mockUsers: UserProgress[] = [
-          { name: 'Leonidas', xp: 5000, level: 10, role: 'ADMIN', isAuthenticated: true, completedLessonIds: [], submittedHomeworks: [], chatHistory: [], notifications: {}, notebook: [], theme: 'DARK' } as UserProgress,
-          { name: 'Artemis', xp: 4200, level: 8, role: 'STUDENT', isAuthenticated: true, completedLessonIds: [], submittedHomeworks: [], chatHistory: [], notifications: {}, notebook: [], theme: 'DARK' } as UserProgress,
+          { name: 'Leonidas', xp: 15000, level: 10, role: 'ADMIN', isAuthenticated: true, completedLessonIds: [], submittedHomeworks: [], chatHistory: [], notifications: {}, notebook: [], theme: 'DARK', stats: XPService.getInitStats() } as UserProgress,
+          { name: 'Artemis', xp: 12500, level: 8, role: 'STUDENT', isAuthenticated: true, completedLessonIds: [], submittedHomeworks: [], chatHistory: [], notifications: {}, notebook: [], theme: 'DARK', stats: XPService.getInitStats() } as UserProgress,
       ];
       
       const combinedUsers = [...mockUsers, ...allUsers];
@@ -167,7 +183,72 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
       const sortedUsers = combinedUsers.sort((a, b) => b.xp - a.xp);
 
       return (
-          <div className="space-y-4">
+          <div className="space-y-6">
+              {/* Rules Card */}
+              <div className="bg-[#14161B] p-6 rounded-[2rem] border border-white/5 relative overflow-hidden animate-slide-up">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-[#FFD700]/10 rounded-full flex items-center justify-center text-xl">📜</div>
+                      <h3 className="text-lg font-black text-white uppercase">Правила Рейтинга</h3>
+                  </div>
+                  <div className="space-y-2 text-xs text-white/70 font-medium">
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>📝 Блокнот (Привычка/ДЗ)</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.NOTEBOOK_HABIT} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>🎯 Цели / Благодарности</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.NOTEBOOK_GOAL} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>⚡ ДЗ (Скорость/Качество)</span>
+                          <span className="text-[#6C5DD3] font-bold">{XP_RULES.HOMEWORK_SLOW}-{XP_RULES.HOMEWORK_FAST} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>🎥 Прямой эфир</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.STREAM_ATTENDANCE} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>🙋‍♂️ Вопрос (max 5)</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.QUESTION_ASKED} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>💡 Инициатива</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.INITIATIVE_PROPOSAL} XP</span>
+                      </div>
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                          <span>📸 Репост Stories</span>
+                          <span className="text-[#6C5DD3] font-bold">+{XP_RULES.STORY_REPOST} XP</span>
+                      </div>
+                      <div className="flex justify-between pt-1">
+                          <span className="text-[#FFD700]">🤝 Приведи друга</span>
+                          <span className="text-[#FFD700] font-black">+{XP_RULES.REFERRAL_FRIEND.toLocaleString()} XP</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={handleShareStory}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-[2rem] shadow-lg active:scale-95 transition-transform flex flex-col items-center justify-center relative overflow-hidden group"
+                  >
+                      <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <span className="text-2xl mb-1">📸</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Share Story</span>
+                      <span className="text-[8px] opacity-70">+{XP_RULES.STORY_REPOST} XP</span>
+                  </button>
+                  <button 
+                    onClick={copyInviteLink}
+                    className="bg-gradient-to-r from-[#FFD700] to-orange-500 text-black p-4 rounded-[2rem] shadow-lg active:scale-95 transition-transform flex flex-col items-center justify-center relative overflow-hidden group"
+                  >
+                      <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <span className="text-2xl mb-1">🤝</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Invite Friend</span>
+                      <span className="text-[8px] opacity-70">+{XP_RULES.REFERRAL_FRIEND.toLocaleString()} XP</span>
+                  </button>
+              </div>
+
+              {/* Top 3 */}
               <div className="bg-gradient-to-br from-white to-slate-50 dark:from-[#1F2128] dark:to-[#14161B] text-slate-900 dark:text-white p-6 rounded-[2rem] mb-6 relative overflow-hidden animate-slide-up fill-mode-both border border-slate-200 dark:border-white/5 shadow-xl dark:shadow-2xl">
                   <div className="absolute top-0 right-0 text-[100px] opacity-5 rotate-12 -translate-y-4 pointer-events-none">🏆</div>
                   <h3 className="text-2xl font-black mb-1">Топ Бойцов</h3>
@@ -207,6 +288,7 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
                   </div>
               </div>
 
+              {/* Rest of the list */}
               <div className="bg-white dark:bg-[#14161B] rounded-[2rem] border border-slate-200 dark:border-white/5 overflow-hidden animate-slide-up delay-100 fill-mode-both shadow-md dark:shadow-none">
                   {sortedUsers.slice(3).map((u, i) => (
                       <div key={i} className={`p-4 flex items-center justify-between border-b border-slate-100 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${u.name === userProgress.name ? 'bg-[#6C5DD3]/10 hover:bg-[#6C5DD3]/20' : ''}`}>
@@ -345,53 +427,6 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
               </div>
           </div>
 
-          {/* Invitation Link */}
-          <div className="bg-gradient-to-r from-slate-100 to-white dark:from-[#1F2128] dark:to-[#14161B] p-6 rounded-[2.5rem] shadow-xl animate-slide-up delay-100 fill-mode-both text-slate-900 dark:text-white relative overflow-hidden border border-slate-200 dark:border-white/5">
-             <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl rotate-12 pointer-events-none">🤝</div>
-             <h3 className="font-black mb-1 text-lg">Призыв в отряд</h3>
-             <p className="text-slate-500 dark:text-white/40 text-xs mb-4">Ваша личная пригласительная ссылка</p>
-             
-             <div className="bg-white dark:bg-black/40 p-4 rounded-2xl border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3 backdrop-blur-md">
-                 <span className="text-xs font-mono text-[#6C5DD3] dark:text-[#FFAB7B] truncate flex-1">{inviteLink}</span>
-                 <button 
-                    onClick={copyInviteLink}
-                    className="bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white p-2 rounded-xl text-xs font-bold transition-colors"
-                 >
-                    COPY
-                 </button>
-             </div>
-          </div>
-
-          {/* Notifications */}
-          <div className="bg-white dark:bg-[#14161B] p-6 rounded-[2.5rem] border border-slate-200 dark:border-white/5 animate-slide-up delay-200 fill-mode-both shadow-md dark:shadow-none">
-              <h3 className="font-black text-slate-800 dark:text-white mb-6 text-lg">Уведомления</h3>
-              
-              <div className="space-y-4">
-                  {[
-                      { key: 'pushEnabled', label: 'Push-уведомления' },
-                      { key: 'telegramSync', label: 'Синхронизация Telegram' },
-                  ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors">
-                          <span className="font-bold text-sm text-slate-700 dark:text-white">{item.label}</span>
-                          <button 
-                            onClick={() => toggleNotification(item.key as keyof typeof editNotifications)}
-                            className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ${
-                                editNotifications[item.key as keyof typeof editNotifications] 
-                                ? 'bg-[#6C5DD3]' 
-                                : 'bg-slate-200 dark:bg-white/10'
-                            }`}
-                          >
-                              <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                                  editNotifications[item.key as keyof typeof editNotifications] 
-                                  ? 'translate-x-5' 
-                                  : 'translate-x-0'
-                              }`} />
-                          </button>
-                      </div>
-                  ))}
-              </div>
-          </div>
-
           <button 
             onClick={handleSaveSettings}
             disabled={isSaving}
@@ -411,7 +446,6 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
 
   // --- MAIN RENDER ---
   
-  // If activeTabOverride is set, render only the content part without the header
   if (activeTabOverride) {
       return (
           <div className="animate-fade-in">

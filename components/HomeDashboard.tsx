@@ -2,6 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { Tab, UserProgress, Lesson, Material, Stream, ArenaScenario } from '../types';
 import { ModuleList } from './ModuleList';
+import { XPService } from '../services/xpService';
+import { telegram } from '../services/telegramService';
 
 interface HomeDashboardProps {
   onNavigate: (tab: Tab) => void;
@@ -30,6 +32,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onProfileClick,
   modules,
   onSelectLesson,
+  onUpdateUser
 }) => {
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'SALES' | 'PSYCHOLOGY' | 'TACTICS'>('ALL');
 
@@ -51,6 +54,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     { id: 'TACTICS', label: 'Тактика', icon: '⚔️' }
   ] as const;
 
+  const handleProposeInitiative = () => {
+      const result = XPService.proposeInitiative(userProgress);
+      onUpdateUser(result.user);
+      telegram.showAlert('Спасибо за инициативу! Ваше предложение отправлено в штаб.', 'Принято');
+      telegram.haptic('success');
+  };
+
   return (
     <div className="min-h-screen bg-body transition-colors duration-300">
       {/* HEADER */}
@@ -70,10 +80,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
           </div>
           
-          <button className="w-10 h-10 rounded-2xl bg-surface border border-border-color flex items-center justify-center text-text-primary shadow-sm hover:scale-105 active:scale-95 transition-all relative overflow-hidden group">
+          <button 
+            onClick={handleProposeInitiative}
+            className="w-10 h-10 rounded-2xl bg-surface border border-border-color flex items-center justify-center text-text-primary shadow-sm hover:scale-105 active:scale-95 transition-all relative overflow-hidden group"
+          >
               <div className="absolute inset-0 bg-[#6C5DD3]/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <svg className="w-5 h-5 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-surface"></span>
+              <span className="text-xl relative z-10">💡</span>
           </button>
       </div>
 
@@ -172,31 +184,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         <h4 className="font-black text-text-primary text-sm tracking-tight">{item.title}</h4>
                         <p className="text-[8px] text-text-secondary font-black uppercase mt-0.5 tracking-wider">{item.desc}</p>
                     </button>
-                ))}
-            </div>
-        </div>
-
-        {/* ACTIVITY TRACKER */}
-        <div className="bg-surface dark:bg-[#1F2128] rounded-[2.5rem] p-6 border border-border-color shadow-sm">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="font-black text-text-primary text-md uppercase">Активность</h3>
-                    <p className="text-[9px] text-text-secondary font-bold uppercase tracking-widest">Прогресс за неделю</p>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-body flex items-center justify-center text-xs">📈</div>
-            </div>
-            
-            <div className="flex items-end justify-between h-24 gap-3">
-                {[35, 60, 25, 80, 55, 90, 40].map((h, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                        <div className="w-full bg-body rounded-t-xl relative h-full overflow-hidden">
-                            <div 
-                                className={`absolute bottom-0 w-full rounded-t-xl transition-all duration-1000 cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i === 3 || i === 5 ? 'bg-[#6C5DD3]' : 'bg-text-secondary/20'}`}
-                                style={{ height: `${h}%` }}
-                            ></div>
-                        </div>
-                        <span className="text-[8px] font-black text-text-secondary uppercase tracking-tighter">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}</span>
-                    </div>
                 ))}
             </div>
         </div>

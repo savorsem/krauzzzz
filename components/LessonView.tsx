@@ -2,9 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 import ReactMarkdown from 'react-markdown';
-import { Lesson, Module } from '../types';
+import { Lesson, Module, UserProgress } from '../types';
 import { checkHomeworkWithAI } from '../services/geminiService';
 import { telegram } from '../services/telegramService';
+import { XPService, XP_RULES } from '../services/xpService';
+import { Button } from './Button';
 
 // Fix for TypeScript error where ReactPlayer props are not recognized correctly
 const VideoPlayer = ReactPlayer as unknown as React.ComponentType<any>;
@@ -25,9 +27,11 @@ const formatDuration = (seconds: number) => {
 interface LessonViewProps {
   lesson: Lesson;
   isCompleted: boolean;
-  onComplete: (lessonId: string) => void;
+  onComplete: (lessonId: string, xpBonus: number) => void;
   onBack: () => void;
   parentModule?: Module | null;
+  userProgress: UserProgress;
+  onUpdateUser: (data: Partial<UserProgress>) => void;
 }
 
 export const LessonView: React.FC<LessonViewProps> = ({ 
@@ -35,7 +39,9 @@ export const LessonView: React.FC<LessonViewProps> = ({
   isCompleted, 
   onComplete, 
   onBack, 
-  parentModule 
+  parentModule,
+  userProgress,
+  onUpdateUser
 }) => {
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -43,10 +49,15 @@ export const LessonView: React.FC<LessonViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   
+  // Question State
+  const [questionText, setQuestionText] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+
   // Video Player State
   const playerRef = useRef<any>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false); // Track if video has started to prevent unmounting
   const [played, setPlayed] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
@@ -59,6 +70,10 @@ export const LessonView: React.FC<LessonViewProps> = ({
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stats for current lesson
+  const questionsAskedCount = userProgress.stats?.questionsAsked?.[lesson.id] || 0;
+  const questionsRemaining = XP_RULES.MAX_QUESTIONS_PER_LESSON - questionsAskedCount;
 
   useEffect(() => {
     return () => {
@@ -93,6 +108,24 @@ export const LessonView: React.FC<LessonViewProps> = ({
     }
   };
 
+  const handleAskQuestion = () => {
+      if (!questionText.trim()) return;
+      setIsAsking(true);
+      
+      // Simulate sending question
+      setTimeout(() => {
+          const result = XPService.askQuestion(userProgress, lesson.id);
+          if (result.allowed) {
+              onUpdateUser(result.user);
+              telegram.showAlert(`Вопрос отправлен куратору. Начислено ${result.xp} XP.`, 'Успешно');
+              setQuestionText('');
+          } else {
+              telegram.showAlert(result.message || 'Ошибка', 'Лимит исчерпан');
+          }
+          setIsAsking(false);
+      }, 1000);
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
     if (lesson.homeworkType === 'TEXT' && !inputText.trim()) return;
@@ -107,7 +140,11 @@ export const LessonView: React.FC<LessonViewProps> = ({
 
     setIsSubmitting(false);
     if (result.passed) {
-        onComplete(lesson.id);
+        // Calculate XP via Service
+        const processResult = XPService.processHomework(userProgress, lesson.id, false); // Assuming normal quality for now
+        onUpdateUser(processResult.user);
+        
+        onComplete(lesson.id, processResult.xp); // Pass earned XP to parent
         setFeedback(result.feedback);
         telegram.haptic('success');
     } else {
@@ -119,6 +156,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
   // Video Handlers
   const handlePlayPause = (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    if (!hasStarted) setHasStarted(true);
     setPlaying(!playing);
   };
 
@@ -220,7 +258,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                         volume={muted ? 0 : volume}
                         muted={muted}
                         controls={false}
-                        light={!playing && !isFullscreen} // Disable light mode when playing or FS to ensure custom controls work immediately
+                        light={!hasStarted} // Only show light placeholder until first play
                         playIcon={
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors cursor-pointer z-10">
                                 <div className="relative w-20 h-20 flex items-center justify-center">
@@ -231,7 +269,10 @@ export const LessonView: React.FC<LessonViewProps> = ({
                                 </div>
                             </div>
                         }
-                        onPlay={() => setPlaying(true)}
+                        onPlay={() => {
+                            setPlaying(true);
+                            if (!hasStarted) setHasStarted(true);
+                        }}
                         onPause={() => setPlaying(false)}
                         onProgress={handleProgress}
                         onDuration={setDuration}
@@ -334,7 +375,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
                                 className="text-white/70 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-all"
                             >
                                 {isFullscreen ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3.75 3.75a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010-1.5h4.5zm13.5 0a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 0a.75.75 0 010 1.5h4.5a.75.75 0 010-1.5h-4.5zM3.75 20.25a.75.75 0 01-.75-.75v-4.5a.75.75 0 011.5 0v4.5a.75.75 0 01-.75.75zm1.5 0a.75.75 0 010-1.5h-4.5a.75.75 0 010 1.5h4.5zm15-4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 4.5a.75.75 0 010-1.5h4.5a.75.75 0 010 1.5h-4.5z" clipRule="evenodd" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3.75 3.75a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010-1.5h4.5zm13.5 0a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 0a.75.75 0 010 1.5h4.5a.75.75 0 010-1.5h-4.5zM3.75 20.25a.75.75 0 01-.75-.75v-4.5a.75.75 0 011.5 0v4.5a.75.75 0 01-.75.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010 1.5h4.5zm15-4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 4.5a.75.75 0 010-1.5h4.5a.75.75 0 010 1.5h-4.5z" clipRule="evenodd" /></svg>
                                 ) : (
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3 3a.75.75 0 01.75-.75h5.5a.75.75 0 010 1.5H4.5v4.75a.75.75 0 01-1.5 0V3zm16.25 1.5a.75.75 0 010-1.5h4.75a.75.75 0 01.75.75v5.5a.75.75 0 01-1.5 0V4.5h-4zm-4 16.25a.75.75 0 010 1.5h-5.5a.75.75 0 010-1.5h4.75v-4.75a.75.75 0 011.5 0v5.5zm10.5-5.5a.75.75 0 01.75.75v4.75a.75.75 0 01-.75.75h-5.5a.75.75 0 010-1.5h4.75v-4zm-15 0a.75.75 0 01.75-.75h4.75a.75.75 0 010 1.5H5.25v4a.75.75 0 01-1.5 0v-4.75z" clipRule="evenodd" /></svg>
                                 )}
@@ -349,7 +390,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
         <div className="bg-surface p-6 md:p-8 rounded-[2.5rem] border border-border-color mb-8 relative overflow-hidden shadow-lg transition-colors">
             <div className="flex items-center gap-3 mb-5">
                <span className="bg-[#6C5DD3]/10 text-[#6C5DD3] border border-[#6C5DD3]/20 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                 +{lesson.xpReward} XP
+                 +{lesson.xpReward} XP (База)
                </span>
                {isCompleted && <span className="text-green-500 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full border border-green-500/10">
                    ✓ Выполнено
@@ -394,6 +435,35 @@ export const LessonView: React.FC<LessonViewProps> = ({
             </div>
         </div>
 
+        {/* QUESTIONS TO CURATOR (RULE 4) */}
+        <div className="bg-[#14161B] p-6 rounded-[2.5rem] border border-white/5 mb-8 relative overflow-hidden shadow-lg">
+             <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-white font-bold text-lg">Вопрос в Штаб</h3>
+                 <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${questionsRemaining > 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                     Лимит: {questionsRemaining}
+                 </span>
+             </div>
+             <p className="text-text-secondary text-xs mb-4">
+                 Задай вопрос по теме урока. За хороший вопрос начисляется +{XP_RULES.QUESTION_ASKED} XP.
+             </p>
+             <div className="flex gap-2">
+                 <input 
+                    value={questionText}
+                    onChange={(e) => setQuestionText(e.target.value)}
+                    placeholder="Ваш вопрос..."
+                    disabled={questionsRemaining <= 0 || isAsking}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-[#6C5DD3] outline-none disabled:opacity-50"
+                 />
+                 <button 
+                    onClick={handleAskQuestion}
+                    disabled={questionsRemaining <= 0 || isAsking || !questionText.trim()}
+                    className="bg-[#6C5DD3] text-white rounded-2xl w-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#5b4eb5] transition-colors"
+                 >
+                    {isAsking ? '...' : '➤'}
+                 </button>
+             </div>
+        </div>
+
         {/* HOMEWORK SECTION */}
         {!isCompleted ? (
             <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-border-color group bg-[#14161B]">
@@ -407,7 +477,9 @@ export const LessonView: React.FC<LessonViewProps> = ({
                         </div>
                         <div>
                             <h3 className="font-black text-xl leading-tight text-white tracking-tight">Боевая задача</h3>
-                            <p className="text-[#6C5DD3] text-[10px] font-black uppercase tracking-widest mt-1">Отчет командованию</p>
+                            <p className="text-[#6C5DD3] text-[10px] font-black uppercase tracking-widest mt-1">
+                                Награда за скорость: {XP_RULES.HOMEWORK_FAST} XP (сейчас)
+                            </p>
                         </div>
                     </div>
                     
@@ -473,11 +545,13 @@ export const LessonView: React.FC<LessonViewProps> = ({
                 </div>
             </div>
         ) : (
-            <div className="bg-green-500/10 rounded-[2.5rem] p-10 text-center border border-green-500/20 mb-8 animate-slide-up shadow-lg">
-                <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-[0_0_40px_rgba(34,197,94,0.4)] animate-bounce">✓</div>
-                <p className="text-green-500 font-black text-2xl uppercase tracking-tighter mb-2">Принято</p>
-                <p className="text-text-secondary text-sm font-medium">Задание зачтено штабом.</p>
-                {feedback && <div className="mt-6 bg-green-500/10 p-4 rounded-xl inline-block max-w-sm"><p className="text-green-600 text-sm leading-relaxed font-medium">"{feedback}"</p></div>}
+            <div className="bg-green-500/10 rounded-[2.5rem] p-10 text-center border border-green-500/20 mb-8 animate-slide-up shadow-lg relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-green-400 via-transparent to-transparent animate-pulse"></div>
+                
+                <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center text-5xl mx-auto mb-6 shadow-[0_0_50px_rgba(34,197,94,0.5)] animate-[bounce_1s_infinite]">✓</div>
+                <p className="text-green-500 font-black text-3xl uppercase tracking-tighter mb-2 animate-scale-in">Lesson Mastered!</p>
+                <p className="text-text-secondary text-sm font-medium">Штаб подтверждает выполнение.</p>
+                {feedback && <div className="mt-6 bg-green-500/10 p-4 rounded-xl inline-block max-w-sm border border-green-500/20"><p className="text-green-400 text-sm leading-relaxed font-medium">"{feedback}"</p></div>}
             </div>
         )}
       </div>

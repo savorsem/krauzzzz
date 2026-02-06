@@ -39,7 +39,6 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   const isAdminView = activeTab === Tab.ADMIN_DASHBOARD;
 
   // MODE: Lesson Active
-  // If a lesson is active, hide the main nav to focus the user, show only exit button.
   if (isLessonActive) {
     return (
       <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center pointer-events-none px-6">
@@ -72,10 +71,10 @@ export const SmartNav: React.FC<SmartNavProps> = ({
       <div 
         className={`
           pointer-events-auto dynamic-island glass-panel bg-white/95 dark:bg-[#14161B]/95 backdrop-blur-xl rounded-[2.5rem] flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-2xl dark:shadow-black/50 border border-slate-200 dark:border-white/10
-          ${isAdminView ? 'w-full max-w-[420px] p-2' : 'w-auto px-2 h-20'}
+          ${isAdminView ? 'w-full max-w-[420px] p-2' : 'w-auto px-6 h-20'}
         `}
       >
-        {/* MODE: Admin Sub-Navigation (Only visible when Admin Dashboard is active) */}
+        {/* MODE: Admin Sub-Navigation */}
         {isAdminView && (
           <div className="w-full flex gap-1 mb-2 overflow-x-auto no-scrollbar py-2 px-1 border-b border-white/5">
             {adminLinks.map(link => (
@@ -92,7 +91,7 @@ export const SmartNav: React.FC<SmartNavProps> = ({
         )}
 
         {/* Main Navigation Bar */}
-        <div className={`flex items-center justify-evenly ${isAdminView ? 'w-full px-4 py-1 h-14' : 'h-full gap-4 px-4'}`}>
+        <div className={`flex items-center justify-between ${isAdminView ? 'w-full px-4 py-1 h-14' : 'h-full gap-8 px-2'}`}>
             
             <NavButton 
               tab={Tab.HOME} 
@@ -100,11 +99,7 @@ export const SmartNav: React.FC<SmartNavProps> = ({
               icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>}
             />
             
-            <NavButton 
-              tab={Tab.CHAT} 
-              isActive={activeTab === Tab.CHAT}
-              icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>}
-            />
+            {/* Chat removed here */}
 
             <NavButton 
               tab={Tab.PROFILE} 

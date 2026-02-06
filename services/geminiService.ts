@@ -1,4 +1,5 @@
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+
+import { GoogleGenAI, Chat, GenerateContentResponse, Type } from "@google/genai";
 
 const DEFAULT_SYSTEM_INSTRUCTION = `
 Ты — Командир элитного отряда продаж "300 Спартанцев".
@@ -155,11 +156,7 @@ export const checkHomeworkWithAI = async (
           
           ${type === 'TEXT' ? `ОТВЕТ НОВОБРАНЦА: "${content}"` : 'Ответ новобранца находится во вложении (фото/видео/файл).'}
           
-          Верни ответ СТРОГО в формате JSON:
-          {
-            "passed": boolean, (true если задание выполнено по критериям, false если нет)
-            "feedback": string (Твой комментарий в стиле спартанского командира. Если не сдал - объясни почему жестко. Если сдал - похвали кратко.)
-          }
+          Верни ответ СТРОГО в формате JSON.
           `
       });
   
@@ -167,7 +164,21 @@ export const checkHomeworkWithAI = async (
         model: 'gemini-3-flash-preview', 
         contents: { parts },
         config: {
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    passed: { 
+                        type: Type.BOOLEAN,
+                        description: 'true если задание выполнено по критериям, false если нет' 
+                    },
+                    feedback: { 
+                        type: Type.STRING,
+                        description: 'Твой комментарий в стиле спартанского командира. Если не сдал - объясни почему жестко. Если сдал - похвали кратко.' 
+                    }
+                },
+                required: ["passed", "feedback"]
+            }
         }
       });
   
@@ -175,7 +186,7 @@ export const checkHomeworkWithAI = async (
       if (!resultText) throw new Error('Empty AI response');
       
       try {
-        const parsed = JSON.parse(cleanJsonString(resultText));
+        const parsed = JSON.parse(resultText);
         return {
             passed: !!parsed.passed,
             feedback: parsed.feedback || 'Нет комментария.'

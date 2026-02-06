@@ -1,19 +1,34 @@
 
 import React, { useState } from 'react';
 import ReactPlayer from 'react-player';
-import { Stream } from '../types';
+import { Stream, UserProgress } from '../types';
+import { XPService } from '../services/xpService';
+import { telegram } from '../services/telegramService';
 
 interface StreamsViewProps {
   streams: Stream[];
   onBack: () => void;
+  userProgress: UserProgress;
+  onUpdateUser: (data: Partial<UserProgress>) => void;
 }
 
-export const StreamsView: React.FC<StreamsViewProps> = ({ streams }) => {
+export const StreamsView: React.FC<StreamsViewProps> = ({ streams, userProgress, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'PAST'>('UPCOMING');
 
   const filteredStreams = streams.filter(s => 
       activeTab === 'UPCOMING' ? (s.status === 'UPCOMING' || s.status === 'LIVE') : s.status === 'PAST'
   );
+
+  const handleCheckIn = (streamId: string) => {
+      const result = XPService.visitStream(userProgress, streamId);
+      if (result.allowed) {
+          onUpdateUser(result.user);
+          telegram.showAlert(`Вы отметились на эфире! Начислено ${result.xp} XP.`, 'Посещение');
+          telegram.haptic('success');
+      } else {
+          telegram.showAlert('Вы уже отмечались на этом эфире.', 'Инфо');
+      }
+  };
 
   return (
     <div className="px-6 pt-10 pb-32 max-w-2xl mx-auto space-y-8 animate-fade-in">
@@ -39,7 +54,10 @@ export const StreamsView: React.FC<StreamsViewProps> = ({ streams }) => {
         </div>
 
         <div className="space-y-6">
-            {filteredStreams.map((stream, i) => (
+            {filteredStreams.map((stream, i) => {
+                const visited = userProgress.stats?.streamsVisited?.includes(stream.id);
+                
+                return (
                 <div key={stream.id} className="bg-surface rounded-[2.5rem] overflow-hidden border border-border-color shadow-sm animate-slide-up group" style={{ animationDelay: `${i*0.1}s` }}>
                     <div className="relative aspect-video bg-black overflow-hidden">
                         {stream.youtubeUrl ? (
@@ -66,6 +84,23 @@ export const StreamsView: React.FC<StreamsViewProps> = ({ streams }) => {
                                 LIVE NOW
                             </div>
                         )}
+                        
+                        {/* Check-in Overlay */}
+                        {(stream.status === 'LIVE' || stream.status === 'UPCOMING') && !visited && (
+                            <div className="absolute bottom-4 right-4">
+                                <button 
+                                    onClick={() => handleCheckIn(stream.id)}
+                                    className="bg-[#6C5DD3] hover:bg-[#5b4eb5] text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+                                >
+                                    <span>📍</span> Я тут (+100 XP)
+                                </button>
+                            </div>
+                        )}
+                        {visited && (
+                             <div className="absolute bottom-4 right-4 bg-green-500/80 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest backdrop-blur-sm">
+                                 ✓ Посещено
+                             </div>
+                        )}
                     </div>
 
                     <div className="p-6">
@@ -88,7 +123,7 @@ export const StreamsView: React.FC<StreamsViewProps> = ({ streams }) => {
                         </div>
                     </div>
                 </div>
-            ))}
+            )})}
 
             {filteredStreams.length === 0 && (
                 <div className="text-center py-32 opacity-30">
