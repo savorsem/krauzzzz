@@ -29,13 +29,41 @@ class BackendService {
 
           if (data) {
             // Merge cloud data with local
+            // Logic: DB is master for ROLE.
+            // Logic: Max(Local.XP, DB.XP) typically, but check for Admin reset (DB=0).
+            
+            const dbUser = {
+                ...data.data,
+                xp: data.xp,
+                level: data.level,
+                role: data.role as any,
+                name: data.username || localUser.name,
+            };
+
+            let finalXp = localUser.xp;
+            let finalLevel = localUser.level;
+
+            // SCENARIO 1: Admin Reset
+            if (dbUser.xp === 0 && localUser.xp > 0) {
+                finalXp = 0;
+                finalLevel = 1;
+            }
+            // SCENARIO 2: Admin Bonus (DB has more)
+            else if (dbUser.xp > localUser.xp) {
+                finalXp = dbUser.xp;
+                finalLevel = dbUser.level;
+            }
+            // SCENARIO 3: Local Progress (keep local, will save next tick)
+            else {
+                // Keep localUser.xp
+            }
+
             const mergedUser: UserProgress = {
               ...localUser,
-              ...data.data, // JSONB fields
-              xp: data.xp,
-              level: data.level,
-              role: data.role as any, // Authority on Role comes from DB
-              name: data.username || localUser.name,
+              ...dbUser, // Prioritize DB metadata
+              xp: finalXp,
+              level: finalLevel,
+              role: dbUser.role, // Always take DB role
               isAuthenticated: true
             };
             return mergedUser;
@@ -65,21 +93,14 @@ class BackendService {
             needsUpdate = true;
         }
         
-        // Level Authority
-        if (remoteVer.level !== localUser.level) {
-            updates.level = remoteVer.level;
-            needsUpdate = true;
-        }
-
-        // XP Logic: 
-        // 1. If remote is 0 and local is > 0, assume Admin Reset -> Force 0.
-        // 2. If remote > local, assume Admin Bonus -> Take remote.
-        // 3. If local > remote, it's pending progress -> Keep local (saveUser will update remote later).
+        // XP Logic for Local Mock
         if (remoteVer.xp === 0 && localUser.xp > 0) {
              updates.xp = 0;
+             updates.level = 1;
              needsUpdate = true;
         } else if (remoteVer.xp > localUser.xp) {
              updates.xp = remoteVer.xp;
+             updates.level = remoteVer.level;
              needsUpdate = true;
         }
 

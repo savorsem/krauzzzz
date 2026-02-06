@@ -125,6 +125,7 @@ const App: React.FC = () => {
           setNotifications(combined);
           
           // 3. Sync Content (Modules, Materials, Streams, etc.)
+          // This ensures that if Admin changes a lesson or adds a stream, everyone gets it.
           const content = await Backend.fetchAllContent();
           if (content) {
               if (JSON.stringify(content.modules) !== JSON.stringify(modules)) setModules(content.modules);
@@ -153,6 +154,7 @@ const App: React.FC = () => {
                       xp: freshUser.xp
                   }));
 
+                  // Trigger System Notification on Role Change
                   if (freshUser.role !== userProgress.role) {
                       const roleNotif: AppNotification = {
                           id: `local-role-${Date.now()}`,

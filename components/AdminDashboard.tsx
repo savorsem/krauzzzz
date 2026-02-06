@@ -496,6 +496,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                      <InputGroup label="XP Награда">
                                         <StyledInput type="number" value={editingLesson.data.xpReward} onChange={e => setEditingLesson({...editingLesson, data: {...editingLesson.data, xpReward: parseInt(e.target.value)}})} />
                                      </InputGroup>
+                                     <div className="col-span-3">
+                                        <InputGroup label="Краткое описание (для списка)">
+                                            <StyledInput value={editingLesson.data.description} onChange={e => setEditingLesson({...editingLesson, data: {...editingLesson.data, description: e.target.value}})} placeholder="О чем этот урок?" />
+                                        </InputGroup>
+                                     </div>
                                 </div>
                              </div>
 
@@ -521,7 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                          </StyledSelect>
                                      </InputGroup>
                                      <InputGroup label="Текст задачи">
-                                         <StyledInput value={editingLesson.data.homeworkTask} onChange={e => setEditingLesson({...editingLesson, data: {...editingLesson.data, homeworkTask: e.target.value}})} />
+                                         <StyledInput value={editingLesson.data.homeworkTask} onChange={e => setEditingLesson({...editingLesson, data: {...editingLesson.data, homeworkTask: e.target.value}})} placeholder="Что именно нужно сделать?" />
                                      </InputGroup>
                                  </div>
                                  <InputGroup label="Промпт для AI (Инструкция Командира)">
