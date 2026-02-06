@@ -136,8 +136,7 @@ export interface AppIntegrations {
   googleDriveFolderId?: string;
   crmWebhookUrl?: string;
   aiModelVersion?: string;
-  supabaseUrl?: string;
-  supabaseAnonKey?: string;
+  databaseUrl?: string; // CHANGED: Generic DB URL instead of Supabase specific keys
   inviteBaseUrl?: string; // NEW: Configurable invite link
 }
 

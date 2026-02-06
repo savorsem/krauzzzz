@@ -32,8 +32,8 @@ const DEFAULT_CONFIG: AppConfig = {
       googleDriveFolderId: '', 
       crmWebhookUrl: '', 
       aiModelVersion: 'gemini-3-flash-preview',
-      supabaseUrl: "https://ijyktbybtsxkknxexftf.supabase.co",
-      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqeWt0YnlidHN4a2tueGV4ZnRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5NTAxMTUsImV4cCI6MjA4NTUyNjExNX0.ks8PXhkJDUaiey4CQahf2jl_-Mo_WaDeDtwtNlttYcI"
+      // Neon DB Connection String (Note: Used for configuration display, connection requires backend)
+      databaseUrl: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_8gtkumX3BAex@ep-raspy-salad-aiz5pncb-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
   },
   features: { enableRealTimeSync: true, autoApproveHomework: false, maintenanceMode: false, allowStudentChat: true, publicLeaderboard: true },
   aiConfig: {
@@ -125,7 +125,6 @@ const App: React.FC = () => {
           setNotifications(combined);
           
           // 3. Sync Content (Modules, Materials, Streams, etc.)
-          // This ensures that if Admin changes a lesson or adds a stream, everyone gets it.
           const content = await Backend.fetchAllContent();
           if (content) {
               if (JSON.stringify(content.modules) !== JSON.stringify(modules)) setModules(content.modules);
@@ -154,7 +153,6 @@ const App: React.FC = () => {
                       xp: freshUser.xp
                   }));
 
-                  // Trigger System Notification on Role Change
                   if (freshUser.role !== userProgress.role) {
                       const roleNotif: AppNotification = {
                           id: `local-role-${Date.now()}`,
@@ -200,7 +198,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     Storage.set('progress', userProgress);
-    // Debounce save slightly to avoid hammering DB on every keystroke
     const timer = setTimeout(() => {
         if (userProgress.isAuthenticated) Backend.saveUser(userProgress);
     }, 1000);

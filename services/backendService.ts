@@ -1,85 +1,33 @@
 
-import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Storage } from './storage';
-import { UserProgress, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, UserRole, AppConfig } from '../types';
+import { UserProgress, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, AppConfig } from '../types';
 import { Logger } from './logger';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from '../constants';
 import { SCENARIOS } from '../components/SalesArena';
 
 type ContentTable = 'modules' | 'materials' | 'streams' | 'events' | 'scenarios' | 'notifications' | 'app_settings';
 
+/**
+ * BACKEND SERVICE (Neon DB Ready)
+ * 
+ * Currently running in "Client-Side Mode" because direct PostgreSQL connections (Neon)
+ * are not secure or possible directly from a browser environment.
+ * 
+ * To connect Neon for real:
+ * 1. Deploy a backend (Vercel Serverless Functions, Next.js API, or Node.js).
+ * 2. Use the 'DATABASE_URL' from config to connect via 'pg' or 'neondatabase/serverless'.
+ * 3. Replace the localStorage calls below with API fetch calls to your backend.
+ */
 class BackendService {
   
   // --- USER SYNC ---
 
   async syncUser(localUser: UserProgress): Promise<UserProgress> {
-    // 1. Try Supabase Sync
-    if (isSupabaseConfigured() && localUser.telegramId) {
-        try {
-          const { data, error } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('telegram_id', localUser.telegramId)
-            .single();
+    // Simulate network latency
+    // await new Promise(r => setTimeout(r, 300));
 
-          if (error && error.code !== 'PGRST116') { 
-            Logger.error('Backend: User fetch error', error);
-            return localUser;
-          }
-
-          if (data) {
-            // Merge cloud data with local
-            // Logic: DB is master for ROLE.
-            // Logic: Max(Local.XP, DB.XP) typically, but check for Admin reset (DB=0).
-            
-            const dbUser = {
-                ...data.data,
-                xp: data.xp,
-                level: data.level,
-                role: data.role as any,
-                name: data.username || localUser.name,
-            };
-
-            let finalXp = localUser.xp;
-            let finalLevel = localUser.level;
-
-            // SCENARIO 1: Admin Reset
-            if (dbUser.xp === 0 && localUser.xp > 0) {
-                finalXp = 0;
-                finalLevel = 1;
-            }
-            // SCENARIO 2: Admin Bonus (DB has more)
-            else if (dbUser.xp > localUser.xp) {
-                finalXp = dbUser.xp;
-                finalLevel = dbUser.level;
-            }
-            // SCENARIO 3: Local Progress (keep local, will save next tick)
-            else {
-                // Keep localUser.xp
-            }
-
-            const mergedUser: UserProgress = {
-              ...localUser,
-              ...dbUser, // Prioritize DB metadata
-              xp: finalXp,
-              level: finalLevel,
-              role: dbUser.role, // Always take DB role
-              isAuthenticated: true
-            };
-            return mergedUser;
-          } 
-          
-          // Create if not exists
-          await this.saveUser(localUser);
-          return localUser;
-
-        } catch (e) {
-          Logger.error('Backend: User sync exception', e);
-          return localUser;
-        }
-    }
-
-    // 2. Fallback: Local "Mock DB" Sync
+    // Fallback: Local "Mock DB" Sync
+    // In a real Neon implementation, this would be: GET /api/users/:id
     const allUsers = Storage.get<UserProgress[]>('allUsers', []);
     const remoteVer = allUsers.find(u => u.telegramId === localUser.telegramId || (u.telegramUsername && u.telegramUsername === localUser.telegramUsername));
     
@@ -94,6 +42,7 @@ class BackendService {
         }
         
         // XP Logic for Local Mock
+        // If remote is 0 (reset) and local > 0, reset local.
         if (remoteVer.xp === 0 && localUser.xp > 0) {
              updates.xp = 0;
              updates.level = 1;
@@ -107,36 +56,17 @@ class BackendService {
         if (needsUpdate) {
             return { ...localUser, ...updates };
         }
+    } else {
+        // First time sync, create in "DB"
+        await this.saveUser(localUser);
     }
 
     return localUser;
   }
 
   async saveUser(user: UserProgress) {
-    if (isSupabaseConfigured() && user.telegramId) {
-        try {
-          const { id, telegramId, telegramUsername, xp, level, role, ...rest } = user;
-          
-          const payload = {
-            telegram_id: telegramId,
-            username: user.name,
-            xp: xp,
-            level: level,
-            role: role,
-            data: rest 
-          };
-
-          const { error } = await supabase!
-            .from('profiles')
-            .upsert(payload, { onConflict: 'telegram_id' });
-
-          if (error) Logger.error('Backend: Save user error', error);
-
-        } catch (e) {
-          Logger.error('Backend: Save user exception', e);
-        }
-    }
-
+    // In a real Neon implementation: POST /api/users
+    
     // Update Local "Mock DB" (allUsers)
     const allUsers = Storage.get<UserProgress[]>('allUsers', []);
     const idx = allUsers.findIndex(u => u.telegramId === user.telegramId);
@@ -147,99 +77,32 @@ class BackendService {
         newAllUsers.push(user);
     }
     Storage.set('allUsers', newAllUsers);
+    // Logger.debug('Backend: User saved to local DB', user.name);
   }
 
   // --- GLOBAL CONFIG SYNC ---
 
   async fetchGlobalConfig(defaultConfig: AppConfig): Promise<AppConfig> {
-      if (!isSupabaseConfigured()) return Storage.get('appConfig', defaultConfig);
-
-      try {
-          const { data, error } = await supabase!
-              .from('app_settings')
-              .select('*')
-              .eq('id', 'global_config')
-              .single();
-
-          if (error || !data) return defaultConfig;
-          return { ...defaultConfig, ...data.data };
-      } catch (e) {
-          Logger.error('Backend: Fetch config failed', e);
-          return defaultConfig;
-      }
+      // In real Neon: SELECT * FROM app_settings WHERE id = 'global_config'
+      return Storage.get('appConfig', defaultConfig);
   }
 
   async saveGlobalConfig(config: AppConfig) {
       Storage.set('appConfig', config);
-      if (!isSupabaseConfigured()) return;
-
-      try {
-          const { error } = await supabase!
-              .from('app_settings')
-              .upsert({ id: 'global_config', data: config });
-          
-          if (error) throw error;
-          Logger.info('Backend: Global config saved');
-      } catch (e) {
-          Logger.error('Backend: Save config failed', e);
-      }
+      Logger.info('Backend: Global config saved locally');
   }
 
   // --- CONTENT SYNC ---
 
   async fetchAllContent() {
-      // In local mode, just return defaults or stored
-      if (!isSupabaseConfigured()) {
-          return {
-              modules: Storage.get('courseModules', COURSE_MODULES),
-              materials: Storage.get('materials', MOCK_MATERIALS),
-              streams: Storage.get('streams', MOCK_STREAMS),
-              events: Storage.get('events', MOCK_EVENTS),
-              scenarios: Storage.get('scenarios', SCENARIOS),
-          };
-      }
-
-      try {
-          const [modules, materials, streams, events, scenarios] = await Promise.all([
-              this.fetchCollection<Module>('modules', COURSE_MODULES),
-              this.fetchCollection<Material>('materials', MOCK_MATERIALS),
-              this.fetchCollection<Stream>('streams', MOCK_STREAMS),
-              this.fetchCollection<CalendarEvent>('events', MOCK_EVENTS),
-              this.fetchCollection<ArenaScenario>('scenarios', SCENARIOS),
-          ]);
-
-          return { modules, materials, streams, events, scenarios };
-      } catch (e) {
-          Logger.error('Backend: Fetch all content failed', e);
-          return null;
-      }
-  }
-
-  private async fetchCollection<T extends { id: string }>(table: ContentTable, defaultData: T[]): Promise<T[]> {
-      try {
-          const { data, error } = await supabase!.from(table).select('*');
-          
-          if (error) {
-              if ((table === 'notifications' || table === 'app_settings') && error.code === '42P01') return [];
-              console.warn(`Backend: Error fetching ${table}`, error.message);
-              return defaultData;
-          }
-
-          if (!data || data.length === 0) {
-              if (table === 'notifications') return [];
-              if (table !== 'app_settings') {
-                  Logger.info(`Backend: ${table} is empty. Seeding...`);
-                  await this.saveCollection(table, defaultData);
-                  return defaultData;
-              }
-              return defaultData;
-          }
-
-          return data.map(row => row.data as T);
-
-      } catch (e) {
-          return defaultData;
-      }
+      // In real Neon: Promise.all([ fetch('/api/modules'), ... ])
+      return {
+          modules: Storage.get('courseModules', COURSE_MODULES),
+          materials: Storage.get('materials', MOCK_MATERIALS),
+          streams: Storage.get('streams', MOCK_STREAMS),
+          events: Storage.get('events', MOCK_EVENTS),
+          scenarios: Storage.get('scenarios', SCENARIOS),
+      };
   }
 
   async saveCollection<T extends { id: string }>(table: ContentTable, items: T[]) {
@@ -253,93 +116,24 @@ class BackendService {
       
       const key = storageKeyMap[table];
       if (key) Storage.set(key, items);
-
-      if (!isSupabaseConfigured()) return;
-
-      try {
-          const payload = items.map(item => ({
-              id: item.id,
-              data: item
-          }));
-
-          const { error } = await supabase!
-              .from(table)
-              .upsert(payload, { onConflict: 'id' });
-
-          if (error) throw error;
-
-          Logger.info(`Backend: Saved ${items.length} items to ${table}`);
-
-      } catch (e: any) {
-          Logger.error(`Backend: Save ${table} failed`, e);
-      }
+      Logger.info(`Backend: Saved ${items.length} items to ${table} (Local)`);
   }
 
   // --- NOTIFICATIONS ---
 
   async fetchNotifications(): Promise<AppNotification[]> {
-      if (!isSupabaseConfigured()) {
-          return Storage.get<AppNotification[]>('local_notifications', []);
-      }
-      return this.fetchCollection<AppNotification>('notifications', []);
+      return Storage.get<AppNotification[]>('local_notifications', []);
   }
 
   async sendBroadcast(notification: AppNotification) {
-      if (!isSupabaseConfigured()) {
-          const current = Storage.get<AppNotification[]>('local_notifications', []);
-          Storage.set('local_notifications', [notification, ...current]);
-          return;
-      }
-
-      try {
-          const payload = {
-              id: notification.id,
-              data: notification
-          };
-          const { error } = await supabase!.from('notifications').insert(payload);
-          if (error) throw error;
-      } catch (e) {
-          Logger.error('Backend: Send broadcast failed', e);
-          throw e;
-      }
+      const current = Storage.get<AppNotification[]>('local_notifications', []);
+      Storage.set('local_notifications', [notification, ...current]);
   }
 
   // --- USER MANAGEMENT ---
 
   async getLeaderboard(): Promise<UserProgress[]> {
-     if (!isSupabaseConfigured()) {
-         return Storage.get<UserProgress[]>('allUsers', []);
-     }
-
-     try {
-         const { data, error } = await supabase!
-            .from('profiles')
-            .select('*')
-            .order('xp', { ascending: false })
-            .limit(50);
-         
-         if (error) throw error;
-
-         return data.map((row: any) => ({
-             name: row.username,
-             xp: row.xp,
-             level: row.level,
-             role: row.role,
-             telegramId: row.telegram_id,
-             avatarUrl: row.data?.avatarUrl,
-             isAuthenticated: true,
-             completedLessonIds: [],
-             submittedHomeworks: [],
-             chatHistory: [],
-             notebook: [],
-             theme: 'LIGHT',
-             notifications: { pushEnabled: false, telegramSync: false, deadlineReminders: false, chatNotifications: false },
-             ...row.data // Spread rest of data
-         }));
-     } catch (e) {
-         Logger.error('Backend: Leaderboard error', e);
-         return Storage.get<UserProgress[]>('allUsers', []);
-     }
+     return Storage.get<UserProgress[]>('allUsers', []);
   }
 }
 

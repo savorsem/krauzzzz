@@ -3,19 +3,17 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  // Загружаем все env переменные (третий аргумент '' разрешает загрузку переменных без префикса VITE_)
+  // Load env variables
   const env = loadEnv(mode, '.', '');
 
   return {
     plugins: [react()],
     define: {
-      // Явный маппинг переменных окружения для Vercel и локальной разработки.
-      // Это заменяет process.env.KEY на реальное значение строки при сборке.
+      // Map environment variables
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
-      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL),
-      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY),
+      'process.env.DATABASE_URL': JSON.stringify(env.DATABASE_URL),
       
-      // Заглушка для остальных вызовов process.env, чтобы избежать ошибок "process is not defined" в браузере
+      // Fallback object for other process.env calls
       'process.env': {}
     },
     build: {
