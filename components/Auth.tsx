@@ -106,14 +106,44 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
       setDossier(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value.replace(/[^a-zA-Z0-9_@]/g, '');
+      setUsername(val);
+      if (errors.username) setErrors(prev => ({ ...prev, username: '' }));
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setPassword(e.target.value);
+      if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+  };
+
   const handleAuthSubmit = () => {
     setErrors({});
     const cleanUsername = username.trim().replace('@', '');
     const cleanPassword = password.trim();
+    let hasError = false;
 
-    if (!cleanUsername) { handleError('username', 'Введите Username'); return; }
-    if (!cleanPassword) { handleError('password', 'Введите пароль'); return; }
+    // Username Validation
+    if (!cleanUsername) { 
+        handleError('username', 'Введите Username'); 
+        hasError = true; 
+    } else if (cleanUsername.length < 3) {
+        handleError('username', 'Минимум 3 символа');
+        hasError = true;
+    }
 
+    // Password Validation
+    if (!cleanPassword) { 
+        handleError('password', 'Введите пароль'); 
+        hasError = true; 
+    } else if (cleanPassword.length < 4) { 
+        handleError('password', 'Пароль слишком короткий (мин. 4)'); 
+        hasError = true; 
+    }
+
+    if (hasError) return;
+
+    // Admin Bypass
     if (cleanUsername === 'admin' && cleanPassword === '55555sa5') {
         telegram.haptic('success');
         onLogin({
@@ -130,8 +160,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
     if (isRegisterMode) {
         const userExists = existingUsers.some(u => u.telegramUsername?.toLowerCase() === cleanUsername.toLowerCase());
         if (userExists) { handleError('username', 'Пользователь уже существует'); return; }
-        if (cleanPassword.length < 4) { handleError('password', 'Минимум 4 символа'); return; }
-
+        
         telegram.haptic('light');
         setStep('IDENTITY');
     } else {
@@ -284,7 +313,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
                    <span className="text-slate-500">@</span>
                    <input 
                      value={username} 
-                     onChange={e => setUsername(e.target.value.replace(/[^a-zA-Z0-9_@]/g, ''))} 
+                     onChange={handleUsernameChange}
                      className="w-full bg-transparent py-4 pl-2 text-slate-900 dark:text-white font-bold outline-none placeholder:text-slate-400 dark:placeholder:text-white/20"
                      placeholder="username"
                    />
@@ -298,7 +327,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, existingUsers = [] }) => {
                    <input 
                      type="password"
                      value={password} 
-                     onChange={e => setPassword(e.target.value)} 
+                     onChange={handlePasswordChange}
                      className="w-full bg-transparent py-4 pl-2 text-slate-900 dark:text-white font-bold outline-none placeholder:text-slate-400 dark:placeholder:text-white/20"
                      placeholder="••••••••"
                    />
