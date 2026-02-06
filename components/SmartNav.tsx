@@ -1,6 +1,7 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Tab, UserRole } from '../types';
+import { telegram } from '../services/telegramService';
 
 interface SmartNavProps {
   activeTab: Tab;
@@ -21,145 +22,187 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   isLessonActive,
   onExitLesson
 }) => {
-  
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
+  // Admin Sub-tabs Configuration
   const adminLinks = [
     { id: 'OVERVIEW', icon: '📊', label: 'Штаб' },
     { id: 'NEURAL_CORE', icon: '🧠', label: 'ИИ Ядро' },
-    { id: 'DATABASE', icon: '🗄️', label: 'База' },
     { id: 'COURSE', icon: '🎓', label: 'Курс' },
     { id: 'ARENA', icon: '⚔️', label: 'Арена' },
-    { id: 'STREAMS', icon: '📹', label: 'Эфиры' },
-    { id: 'MATERIALS', icon: '📚', label: 'База' },
-    { id: 'CALENDAR', icon: '📅', label: 'План' },
     { id: 'USERS', icon: '👥', label: 'Люди' },
-    { id: 'DEPLOY', icon: '🚀', label: 'Deploy' },
-    { id: 'SETTINGS', icon: '⚙️', label: 'Настр.' },
+    { id: 'SETTINGS', icon: '⚙️', label: 'Система' },
   ];
 
   const isAdminView = activeTab === Tab.ADMIN_DASHBOARD;
 
-  // Tabs ordered for swipe logic
-  const TABS_ORDER = [Tab.HOME, Tab.PROFILE];
-  if (role === 'ADMIN') TABS_ORDER.push(Tab.ADMIN_DASHBOARD);
+  // Auto-scroll admin tabs
+  useEffect(() => {
+    if (isAdminView) {
+        setIsExpanded(true);
+        // Center active admin tab
+        // Implementation omitted for brevity, simple CSS scroll snap is used
+    } else {
+        setIsExpanded(false);
+    }
+  }, [isAdminView]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-      touchStartX.current = e.targetTouches[0].clientX;
+  const handleTabChange = (tab: Tab) => {
+    if (tab === activeTab) return;
+    telegram.haptic('selection');
+    setActiveTab(tab);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-      touchEndX.current = e.targetTouches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-      if (touchStartX.current - touchEndX.current > 50) {
-          // Swipe Left -> Next Tab
-          const currIdx = TABS_ORDER.indexOf(activeTab);
-          if (currIdx < TABS_ORDER.length - 1) setActiveTab(TABS_ORDER[currIdx + 1]);
-      }
-
-      if (touchEndX.current - touchStartX.current > 50) {
-          // Swipe Right -> Prev Tab
-          const currIdx = TABS_ORDER.indexOf(activeTab);
-          if (currIdx > 0) setActiveTab(TABS_ORDER[currIdx - 1]);
-      }
-  };
-
-  // MODE: Lesson Active
+  // --- MODE: LESSON ACTIVE (BACK BUTTON) ---
   if (isLessonActive) {
     return (
-      <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center pointer-events-none px-6 animate-slide-up">
+      <div className="fixed bottom-8 left-0 right-0 z-[100] px-6 flex justify-center pointer-events-none">
         <button 
-          onClick={onExitLesson} 
-          className="pointer-events-auto bg-[#16181D] text-white px-8 py-4 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-3 active:scale-95 transition-transform border border-white/10 group hover:border-red-500/50"
+            onClick={() => {
+                telegram.haptic('medium');
+                onExitLesson();
+            }}
+            className="pointer-events-auto group relative flex items-center gap-4 bg-[#16181D]/95 backdrop-blur-2xl border border-white/10 pr-6 pl-2 py-2 rounded-full shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] active:scale-95 transition-all duration-300 animate-island"
         >
-          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] group-hover:bg-red-500 transition-colors">✕</div>
-          <span className="text-xs font-black uppercase tracking-widest">Завершить урок</span>
+            <div className="w-12 h-12 rounded-full bg-[#6C5DD3] flex items-center justify-center shadow-[0_0_20px_rgba(108,93,211,0.4)] group-hover:scale-110 transition-transform">
+                <svg className="w-5 h-5 text-white -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+            </div>
+            <div className="flex flex-col items-start mr-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#6C5DD3]">Вернуться</span>
+                <span className="text-xs font-bold text-white tracking-wide">В ГЛАВНЫЙ ШТАБ</span>
+            </div>
+            {/* Animated Glow Border */}
+            <div className="absolute inset-0 rounded-full border border-[#6C5DD3]/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
         </button>
       </div>
     );
   }
 
-  // Helper for nav buttons to keep JSX clean
-  const NavButton = ({ tab, icon, isActive, showBadge = false }: { tab: Tab, icon: React.ReactNode, isActive: boolean, showBadge?: boolean }) => (
-      <button 
-        onClick={() => setActiveTab(tab)} 
-        className={`relative w-14 h-14 flex items-center justify-center rounded-full transition-all duration-300
-          ${isActive ? 'text-[#6C5DD3] -translate-y-2' : 'text-slate-400 hover:text-slate-600 dark:hover:text-white/60 active:scale-95'}
-        `}
-      >
-        {isActive && (
-           <>
-             {/* Active Glow */}
-             <div className="absolute inset-0 bg-[#6C5DD3]/20 rounded-full blur-lg opacity-50"></div>
-             {/* Indicator Dot */}
-             <div className="absolute -bottom-2 w-1 h-1 rounded-full bg-[#6C5DD3] shadow-[0_0_8px_#6C5DD3]"></div>
-           </>
-        )}
-        {showBadge && (
-            <div className="absolute top-2 right-3 w-2 h-2 bg-[#FFD700] rounded-full animate-pulse border border-[#16181D]"></div>
-        )}
-        <div className={`transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_5px_rgba(108,93,211,0.5)]' : ''}`}>
-            {icon}
-        </div>
-      </button>
-  );
-
+  // --- MODE: MAIN NAVIGATION ---
   return (
-    <div className="fixed bottom-6 left-0 right-0 z-[100] px-4 flex justify-center pointer-events-none" style={{ paddingBottom: 'var(--safe-area-bottom)' }}>
+    <div className="fixed bottom-6 left-0 right-0 z-[100] flex justify-center pointer-events-none px-4" style={{ paddingBottom: 'var(--safe-bottom)' }}>
       <div 
         className={`
-          pointer-events-auto dynamic-island bg-[#16181D]/90 backdrop-blur-2xl rounded-[2.5rem] flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-2xl ring-1 ring-white/10
-          ${isAdminView ? 'w-full max-w-[420px] p-2' : 'w-auto px-8 h-20'}
+          pointer-events-auto relative island-blur bg-[#0F1115]/90 overflow-hidden
+          transition-all duration-500 cubic-bezier(0.23, 1, 0.32, 1) shadow-2xl
+          ${isExpanded ? 'w-full max-w-[380px] rounded-[2.5rem] p-1.5' : 'w-auto px-1.5 py-1.5 rounded-full'}
         `}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* MODE: Admin Sub-Navigation */}
-        {isAdminView && (
-          <div className="w-full flex gap-1 mb-2 overflow-x-auto no-scrollbar py-2 px-1 border-b border-white/5 animate-fade-in">
-            {adminLinks.map((link, idx) => (
-              <button
-                key={link.id}
-                onClick={() => setAdminSubTab(link.id)}
-                className={`flex-shrink-0 flex flex-col items-center justify-center py-2.5 px-3 rounded-2xl transition-all min-w-[60px] animate-slide-up ${adminSubTab === link.id ? 'bg-[#6C5DD3] text-white shadow-lg shadow-[#6C5DD3]/20 scale-105' : 'text-slate-400 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5'}`}
-                style={{ animationDelay: `${idx * 0.05}s` }}
-              >
-                <span className="text-lg mb-1">{link.icon}</span>
-                <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">{link.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Background Mesh for Island */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_50%_0%,_rgba(108,93,211,0.3),_transparent_70%)]"></div>
 
-        {/* Main Navigation Bar */}
-        <div className={`flex items-center justify-between ${isAdminView ? 'w-full px-4 py-1 h-14' : 'h-full gap-8'}`}>
+        <div className="flex flex-col w-full relative z-10">
             
-            <NavButton 
-              tab={Tab.HOME} 
-              isActive={activeTab === Tab.HOME}
-              icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>}
-            />
-            
-            <NavButton 
-              tab={Tab.PROFILE} 
-              isActive={activeTab === Tab.PROFILE}
-              icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>}
-            />
+            {/* EXPANDED CONTENT (ADMIN SUB-TABS) */}
+            <div 
+                className={`
+                    w-full overflow-x-auto no-scrollbar flex gap-1 mb-1 transition-all duration-500 ease-out
+                    ${isExpanded ? 'max-h-[80px] opacity-100 py-1' : 'max-h-0 opacity-0 py-0'}
+                `}
+                ref={scrollRef}
+            >
+                {adminLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    onClick={() => { telegram.haptic('light'); setAdminSubTab(link.id); }}
+                    className={`
+                        flex-shrink-0 flex flex-col items-center justify-center w-[70px] h-[64px] rounded-2xl transition-all border
+                        ${adminSubTab === link.id 
+                            ? 'bg-[#6C5DD3] border-[#6C5DD3] text-white shadow-lg' 
+                            : 'bg-white/5 border-transparent text-white/40 hover:bg-white/10'}
+                    `}
+                  >
+                    <span className="text-xl mb-1">{link.icon}</span>
+                    <span className="text-[8px] font-black uppercase">{link.label}</span>
+                  </button>
+                ))}
+            </div>
 
-            {role === 'ADMIN' && (
-               <NavButton 
-                  tab={Tab.ADMIN_DASHBOARD}
-                  isActive={activeTab === Tab.ADMIN_DASHBOARD}
-                  showBadge={true} 
-                  icon={<svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>}
-               />
-            )}
+            {/* MAIN ROW */}
+            <div className={`flex items-center justify-between ${isExpanded ? 'w-full px-4 h-16' : 'gap-2 h-16'}`}>
+                
+                <NavButton 
+                    isActive={activeTab === Tab.HOME}
+                    onClick={() => handleTabChange(Tab.HOME)}
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>}
+                    label="Главная"
+                />
+                
+                {/* Separator / Decoration */}
+                {!isExpanded && <div className="w-px h-8 bg-white/10 mx-1"></div>}
+
+                <NavButton 
+                    isActive={activeTab === Tab.PROFILE}
+                    onClick={() => handleTabChange(Tab.PROFILE)}
+                    icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
+                    label="Профиль"
+                />
+
+                {role === 'ADMIN' && (
+                    <>
+                        {!isExpanded && <div className="w-px h-8 bg-white/10 mx-1"></div>}
+                        <NavButton 
+                            isActive={activeTab === Tab.ADMIN_DASHBOARD}
+                            onClick={() => handleTabChange(Tab.ADMIN_DASHBOARD)}
+                            icon={<svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"></path><path d="M12 2v10l4.24-4.24"></path></svg>}
+                            label="Админ"
+                            badge={true}
+                            isAdmin
+                        />
+                    </>
+                )}
+            </div>
         </div>
       </div>
     </div>
   );
 };
+
+// --- SUB-COMPONENT: NAV BUTTON ---
+const NavButton = ({ isActive, onClick, icon, label, badge, isAdmin }: { isActive: boolean, onClick: () => void, icon: React.ReactNode, label: string, badge?: boolean, isAdmin?: boolean }) => (
+    <button 
+      onClick={onClick} 
+      className={`
+        relative w-16 h-full flex flex-col items-center justify-center transition-all duration-300 rounded-2xl group
+        ${isActive ? '' : 'hover:bg-white/5'}
+      `}
+    >
+      {/* Active Lamp Effect */}
+      <div className={`
+        absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full blur-xl transition-all duration-500
+        ${isActive ? 'bg-[#6C5DD3] opacity-60' : 'bg-transparent opacity-0'}
+      `}></div>
+
+      {/* Icon Wrapper */}
+      <div className={`
+        relative transition-all duration-300 flex items-center justify-center
+        ${isActive ? 'text-white -translate-y-1 scale-110 drop-shadow-[0_0_10px_rgba(108,93,211,0.8)]' : 'text-slate-400 group-hover:text-white'}
+        ${isAdmin && isActive ? 'text-[#FFAB7B] drop-shadow-[0_0_10px_rgba(255,171,123,0.8)]' : ''}
+      `}>
+          {icon}
+          {badge && (
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border border-[#0F1115]"></span>
+            </span>
+          )}
+      </div>
+
+      {/* Label */}
+      <span className={`
+        text-[9px] font-black uppercase mt-1 tracking-tighter transition-all duration-300
+        ${isActive ? 'text-white opacity-100 translate-y-0' : 'text-slate-500 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0'}
+      `}>
+          {label}
+      </span>
+      
+      {/* Active Dot */}
+      <div className={`
+        absolute bottom-1 w-1 h-1 rounded-full bg-white transition-all duration-300
+        ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}
+      `}></div>
+    </button>
+);

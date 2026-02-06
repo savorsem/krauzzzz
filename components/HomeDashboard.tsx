@@ -115,7 +115,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
       </div>
 
-      <div className="px-6 pt-4 pb-32 space-y-8 animate-fade-in max-w-4xl mx-auto">
+      <div className="px-6 pt-4 pb-36 space-y-8 animate-fade-in max-w-4xl mx-auto">
         
         {/* MAIN PROGRESS WIDGET */}
         <div className="relative bg-[#16181D] rounded-[2.5rem] p-6 shadow-xl border border-white/5 overflow-hidden group">

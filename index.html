@@ -30,31 +30,20 @@
               }
             },
             animation: {
-              'blob': 'blob 7s infinite',
+              'blob': 'blob 10s infinite',
               'gradient-x': 'gradient-x 15s ease infinite',
-              'gradient-y': 'gradient-y 15s ease infinite',
-              'gradient-xy': 'gradient-xy 15s ease infinite',
               'shimmer': 'shimmer 2.5s linear infinite',
-              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 3s ease-in-out infinite',
             },
             keyframes: {
               blob: {
-                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
                 '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
                 '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                '100%': { transform: 'translate(0px, 0px) scale(1)' },
               },
-              'gradient-y': {
-                '0%, 100%': { 'background-size': '400% 400%', 'background-position': 'center top' },
-                '50%': { 'background-size': '200% 200%', 'background-position': 'center center' }
-              },
-              'gradient-x': {
-                '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
-                '50%': { 'background-size': '200% 200%', 'background-position': 'right center' }
-              },
-              'gradient-xy': {
-                '0%, 100%': { 'background-size': '400% 400%', 'background-position': 'left center' },
-                '50%': { 'background-size': '200% 200%', 'background-position': 'right center' }
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
               },
               shimmer: {
                 '0%': { transform: 'translateX(-100%)' },
@@ -69,32 +58,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       :root {
-        /* Light Mode Defaults */
         --bg-body: #F0F2F5;
         --bg-surface: #FFFFFF;
         --bg-card: #FFFFFF;
         --text-primary: #1A1C23;
         --text-secondary: #64748B;
-        --border-color: rgba(0, 0, 0, 0.06);
-        --glass-bg: rgba(255, 255, 255, 0.85);
-        --glass-border: rgba(255, 255, 255, 0.5);
-        
+        --border-color: rgba(0, 0, 0, 0.08);
+        --glass-bg: rgba(255, 255, 255, 0.8);
         --color-accent: #6C5DD3;
-        
         --safe-top: env(safe-area-inset-top, 20px);
         --safe-bottom: env(safe-area-inset-bottom, 20px);
       }
 
       html.dark :root {
-        /* Dark Mode Defaults - Deepened for Premium Feel */
         --bg-body: #030304; 
         --bg-surface: #0F1115;
         --bg-card: #16181D;
         --text-primary: #FFFFFF;
         --text-secondary: #94A3B8;
-        --border-color: rgba(255, 255, 255, 0.06);
-        --glass-bg: rgba(15, 17, 21, 0.8);
-        --glass-border: rgba(255, 255, 255, 0.08);
+        --border-color: rgba(255, 255, 255, 0.08);
+        --glass-bg: rgba(15, 17, 21, 0.85);
       }
 
       body {
@@ -103,89 +86,57 @@
         font-family: 'Plus Jakarta Sans', sans-serif;
         margin: 0;
         padding: 0;
-        overflow: hidden; /* App handles scroll internally */
+        overflow: hidden;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
-        transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s ease;
       }
 
-      /* Global Selection Color */
-      ::selection {
-        background: rgba(108, 93, 211, 0.3);
-        color: white;
+      /* Animated Background Mesh */
+      .mesh-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+        background: var(--bg-body);
       }
 
-      /* Scrollbar Styling */
-      .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: var(--color-accent) transparent;
+      .mesh-orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.15;
+        pointer-events: none;
       }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
+
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background-color: var(--color-accent);
         border-radius: 20px;
       }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      /* Common Components */
-      .glass-panel {
-        background: var(--glass-bg);
-        border: 1px solid var(--border-color);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+      .island-blur {
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 
+            0 4px 6px -1px rgba(0, 0, 0, 0.1),
+            0 20px 40px -10px rgba(0, 0, 0, 0.4),
+            inset 0 1px 1px rgba(255, 255, 255, 0.1);
       }
 
-      .dynamic-island {
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--border-color);
+      @keyframes slide-up-island {
+        from { transform: translateY(100px) scale(0.9); opacity: 0; }
+        to { transform: translateY(0) scale(1); opacity: 1; }
       }
 
-      /* Animations */
-      @keyframes slide-up {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-      .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
-
-      @keyframes fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
-
-      @keyframes scale-in {
-        from { transform: scale(0.95); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
-      }
-      .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-
-      @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          20%, 60% { transform: translateX(-4px); }
-          40%, 80% { transform: translateX(4px); }
-      }
-      .animate-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
-
-      /* Inputs */
-      input, textarea, select {
-        font-family: inherit;
-      }
-      input:-webkit-autofill,
-      input:-webkit-autofill:hover, 
-      input:-webkit-autofill:focus, 
-      input:-webkit-autofill:active{
-          -webkit-box-shadow: 0 0 0 30px var(--bg-surface) inset !important;
-          -webkit-text-fill-color: var(--text-primary) !important;
-          transition: background-color 5000s ease-in-out 0s;
+      .animate-island {
+        animation: slide-up-island 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
       }
     </style>
   <script type="importmap">
@@ -205,6 +156,11 @@
 </script>
 </head>
   <body>
+    <div class="mesh-bg">
+        <div class="mesh-orb w-[80%] h-[80%] -top-[20%] -left-[20%] bg-[#6C5DD3] animate-blob"></div>
+        <div class="mesh-orb w-[70%] h-[70%] top-[40%] -right-[10%] bg-[#FFAB7B] animate-blob" style="animation-delay: -3s"></div>
+        <div class="mesh-orb w-[60%] h-[60%] -bottom-[10%] left-[20%] bg-[#4F46E5] animate-blob" style="animation-delay: -6s"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
