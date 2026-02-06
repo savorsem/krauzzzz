@@ -162,7 +162,7 @@ const App: React.FC = () => {
       // Poll every 10 seconds
       const interval = setInterval(syncData, 10000);
       return () => clearInterval(interval);
-  }, [userProgress.isAuthenticated, appConfig, userProgress.role]); // Added role to dependency to detect changes correctly inside effect
+  }, [userProgress.isAuthenticated, appConfig, userProgress.role]); 
 
   // --- THEME & PERSISTENCE ---
   useEffect(() => {
@@ -208,7 +208,7 @@ const App: React.FC = () => {
       } else if (Object.values(Tab).includes(link as Tab)) {
           setActiveTab(link as Tab);
       } else {
-          // Handle specific deeper links if needed (e.g., "LESSON:id")
+          // Fallback or specific handlers
           console.log('Navigating to:', link);
       }
   };
