@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AppConfig, Module, UserProgress, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, Lesson, UserRole } from '../types';
+import { AppConfig, Module, UserProgress, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, Lesson, UserRole, HomeworkType } from '../types';
 import { Button } from './Button';
 import { telegram } from '../services/telegramService';
 
@@ -43,6 +43,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // AI Config State
   const [systemInstruction, setSystemInstruction] = useState(config.systemInstruction);
 
+  // Course Editing State
+  const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [editingLessonState, setEditingLessonState] = useState<{ moduleId: string, lesson: Lesson } | null>(null);
+
   const sendNotif = () => {
       if(!notifTitle || !notifMsg) return;
       telegram.haptic('success');
@@ -65,7 +69,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       addToast('success', 'Промпт ИИ обновлен');
   };
 
-  const handleDeleteModule = (id: string) => {
+  const handleDeleteModule = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
       if (confirm('Удалить модуль?')) {
           onUpdateModules(modules.filter(m => m.id !== id));
           telegram.haptic('warning');
@@ -89,6 +94,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
       });
       telegram.haptic('medium');
+  };
+
+  // --- COURSE EDITING HANDLERS ---
+  const handleSaveLesson = () => {
+      if (!editingLessonState) return;
+
+      const updatedModules = modules.map(m => {
+          if (m.id === editingLessonState.moduleId) {
+              return {
+                  ...m,
+                  lessons: m.lessons.map(l => l.id === editingLessonState.lesson.id ? editingLessonState.lesson : l)
+              };
+          }
+          return m;
+      });
+
+      onUpdateModules(updatedModules);
+      setEditingLessonState(null);
+      telegram.haptic('success');
+      addToast('success', 'Урок сохранен');
   };
 
   return (
@@ -170,24 +195,153 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* --- VIEW: COURSE --- */}
         {activeSubTab === 'COURSE' && (
              <div className="space-y-4 animate-slide-up">
-                 {modules.map((mod, i) => (
-                     <div key={mod.id} className="bg-surface border border-border-color p-5 rounded-[2rem] flex items-center gap-4 group">
-                         <div className="w-12 h-12 rounded-2xl bg-body flex items-center justify-center font-black text-text-secondary text-sm border border-border-color">
-                             {i + 1}
+                 {modules.map((mod, i) => {
+                     const isExpanded = expandedModuleId === mod.id;
+                     return (
+                         <div key={mod.id} className="bg-surface border border-border-color rounded-[2rem] overflow-hidden transition-all duration-300">
+                             <div 
+                                className="p-5 flex items-center gap-4 group cursor-pointer"
+                                onClick={() => setExpandedModuleId(isExpanded ? null : mod.id)}
+                             >
+                                 <div className="w-12 h-12 rounded-2xl bg-body flex items-center justify-center font-black text-text-secondary text-sm border border-border-color">
+                                     {i + 1}
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                     <h4 className="font-bold text-text-primary truncate">{mod.title}</h4>
+                                     <p className="text-xs text-text-secondary">{mod.lessons.length} уроков</p>
+                                 </div>
+                                 <div className="flex gap-2">
+                                    <button onClick={(e) => handleDeleteModule(mod.id, e)} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                                        🗑️
+                                    </button>
+                                    <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform ${isExpanded ? 'rotate-180 bg-body' : 'bg-body'}`}>
+                                        ▼
+                                    </button>
+                                 </div>
+                             </div>
+                             
+                             {/* Lesson List within Module */}
+                             {isExpanded && (
+                                 <div className="bg-body/50 border-t border-border-color p-4 space-y-2">
+                                     {mod.lessons.map((lesson, idx) => (
+                                         <div key={lesson.id} className="flex items-center justify-between p-3 bg-surface rounded-xl border border-border-color">
+                                             <div className="flex items-center gap-3 overflow-hidden">
+                                                 <span className="text-[10px] font-black text-text-secondary w-4">{idx + 1}</span>
+                                                 <span className="text-xs font-bold text-text-primary truncate">{lesson.title}</span>
+                                             </div>
+                                             <button 
+                                                onClick={() => setEditingLessonState({ moduleId: mod.id, lesson })}
+                                                className="px-3 py-1 bg-[#6C5DD3]/10 text-[#6C5DD3] rounded-lg text-[10px] font-black uppercase hover:bg-[#6C5DD3] hover:text-white transition-colors"
+                                             >
+                                                Edit
+                                             </button>
+                                         </div>
+                                     ))}
+                                     <div className="text-center pt-2">
+                                         <button className="text-[10px] font-bold text-text-secondary hover:text-[#6C5DD3] uppercase tracking-widest">
+                                             + Добавить урок
+                                         </button>
+                                     </div>
+                                 </div>
+                             )}
                          </div>
-                         <div className="flex-1 min-w-0">
-                             <h4 className="font-bold text-text-primary truncate">{mod.title}</h4>
-                             <p className="text-xs text-text-secondary">{mod.lessons.length} уроков</p>
-                         </div>
-                         <button onClick={() => handleDeleteModule(mod.id)} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
-                             🗑️
-                         </button>
-                     </div>
-                 ))}
+                     );
+                 })}
                  <button className="w-full py-4 border-2 border-dashed border-border-color rounded-[2rem] text-text-secondary font-black uppercase text-xs hover:border-[#6C5DD3] hover:text-[#6C5DD3] transition-all">
                      + Добавить Модуль
                  </button>
              </div>
+        )}
+
+        {/* --- MODAL: EDIT LESSON --- */}
+        {editingLessonState && (
+            <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-6">
+                <div className="bg-[#1F2128] w-full sm:max-w-lg h-[85vh] sm:h-auto rounded-t-[2.5rem] sm:rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl animate-slide-up">
+                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#14161B] rounded-t-[2.5rem]">
+                        <h3 className="text-lg font-black text-white">Редактор Урока</h3>
+                        <button onClick={() => setEditingLessonState(null)} className="text-white/40 hover:text-white">✕</button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Заголовок</label>
+                            <input 
+                                value={editingLessonState.lesson.title}
+                                onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, title: e.target.value } })}
+                                className="w-full bg-black/20 border border-white/10 p-3 rounded-xl text-sm font-bold text-white outline-none focus:border-[#6C5DD3]"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Описание (Тизер)</label>
+                             <textarea 
+                                 value={editingLessonState.lesson.description}
+                                 onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, description: e.target.value } })}
+                                 className="w-full bg-black/20 border border-white/10 p-3 rounded-xl text-xs text-white/80 h-20 resize-none outline-none focus:border-[#6C5DD3]"
+                             />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Награда (XP)</label>
+                                <input 
+                                    type="number"
+                                    value={editingLessonState.lesson.xpReward}
+                                    onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, xpReward: parseInt(e.target.value) || 0 } })}
+                                    className="w-full bg-black/20 border border-white/10 p-3 rounded-xl text-sm font-bold text-[#FFD700] outline-none focus:border-[#6C5DD3]"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Видео URL</label>
+                                <input 
+                                    value={editingLessonState.lesson.videoUrl || ''}
+                                    onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, videoUrl: e.target.value } })}
+                                    className="w-full bg-black/20 border border-white/10 p-3 rounded-xl text-xs font-mono text-white/60 outline-none focus:border-[#6C5DD3]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Тип Задания</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {['TEXT', 'PHOTO', 'VIDEO', 'FILE'].map(t => (
+                                    <button 
+                                        key={t}
+                                        onClick={() => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, homeworkType: t as HomeworkType } })}
+                                        className={`py-2 rounded-lg text-[8px] font-black uppercase border transition-all ${editingLessonState.lesson.homeworkType === t ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]' : 'border-white/10 text-white/40'}`}
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Задание для Студента</label>
+                             <textarea 
+                                 value={editingLessonState.lesson.homeworkTask}
+                                 onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, homeworkTask: e.target.value } })}
+                                 className="w-full bg-black/20 border border-white/10 p-3 rounded-xl text-sm text-white h-24 resize-none outline-none focus:border-[#6C5DD3]"
+                             />
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[10px] font-black text-red-400/70 uppercase tracking-widest">Инструкция для AI (Промпт)</label>
+                             <textarea 
+                                 value={editingLessonState.lesson.aiGradingInstruction}
+                                 onChange={(e) => setEditingLessonState({ ...editingLessonState, lesson: { ...editingLessonState.lesson, aiGradingInstruction: e.target.value } })}
+                                 className="w-full bg-red-500/5 border border-red-500/20 p-3 rounded-xl text-xs font-mono text-red-200/80 h-32 resize-none outline-none focus:border-red-500"
+                             />
+                        </div>
+                    </div>
+
+                    <div className="p-6 border-t border-white/10 bg-[#14161B] rounded-b-[2.5rem]">
+                        <Button onClick={handleSaveLesson} fullWidth className="!bg-[#6C5DD3] hover:!bg-[#5b4eb5]">
+                            СОХРАНИТЬ ИЗМЕНЕНИЯ
+                        </Button>
+                    </div>
+                </div>
+            </div>
         )}
 
         {/* --- VIEW: USERS --- */}

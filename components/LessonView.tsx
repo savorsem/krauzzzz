@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 import ReactMarkdown from 'react-markdown';
-import { Lesson, Module, UserProgress } from '../types';
+import { Lesson, Module, UserProgress, HomeworkType } from '../types';
 import { checkHomeworkWithAI } from '../services/geminiService';
 import { telegram } from '../services/telegramService';
 import { XPService, XP_RULES } from '../services/xpService';
@@ -20,6 +20,29 @@ interface LessonViewProps {
   onUpdateLesson?: (updatedLesson: Lesson) => void;
 }
 
+// Helper Component for Admin Sections
+const EditSection = ({ title, isOpen, onToggle, children, icon, colorClass = "text-white" }: any) => (
+  <div className={`bg-[#16181D] border ${isOpen ? 'border-[#6C5DD3]/30' : 'border-white/5'} rounded-2xl overflow-hidden transition-all duration-300 shadow-sm`}>
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between p-4 bg-white/5 active:bg-white/10 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+         <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center text-lg">{icon}</div>
+         <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>{title}</span>
+      </div>
+      <div className={`w-6 h-6 rounded-full bg-black/20 flex items-center justify-center transition-transform duration-300 ${isOpen ? 'rotate-180 text-white' : 'text-white/30'}`}>
+        ▼
+      </div>
+    </button>
+    <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="p-4 space-y-4 border-t border-white/5">
+            {children}
+        </div>
+    </div>
+  </div>
+);
+
 export const LessonView: React.FC<LessonViewProps> = ({ 
   lesson, 
   isCompleted, 
@@ -27,8 +50,10 @@ export const LessonView: React.FC<LessonViewProps> = ({
   onBack, 
   parentModule,
   userProgress,
-  onUpdateUser
+  onUpdateUser,
+  onUpdateLesson
 }) => {
+  // User State
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,9 +61,21 @@ export const LessonView: React.FC<LessonViewProps> = ({
   const [questionText, setQuestionText] = useState('');
   const [isAsking, setIsAsking] = useState(false);
 
+  // Admin State
+  const isAdmin = userProgress.role === 'ADMIN';
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedLesson, setEditedLesson] = useState<Lesson>(lesson);
+  // Track open sections in edit mode
+  const [openSection, setOpenSection] = useState<'info' | 'content' | 'homework'>('content');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const questionsAskedCount = userProgress.stats?.questionsAsked?.[lesson.id] || 0;
   const questionsRemaining = XP_RULES.MAX_QUESTIONS_PER_LESSON - questionsAskedCount;
+
+  // Sync edited state when lesson changes
+  useEffect(() => {
+      setEditedLesson(lesson);
+  }, [lesson]);
 
   const handleAskQuestion = () => {
       if (!questionText.trim()) return;
@@ -78,9 +115,155 @@ export const LessonView: React.FC<LessonViewProps> = ({
     }
   };
 
+  const handleSaveLesson = () => {
+      if (onUpdateLesson) {
+          onUpdateLesson(editedLesson);
+          telegram.haptic('success');
+          setIsEditing(false);
+      }
+  };
+
   const videoUrl = lesson.videoUrl || parentModule?.videoUrl;
   const hasVideo = !!videoUrl;
 
+  // --- ADMIN EDIT RENDER ---
+  if (isEditing && isAdmin) {
+      return (
+        <div className="flex flex-col min-h-screen bg-[#0F1115] text-white">
+            <div className="sticky top-0 z-50 px-6 pt-[calc(var(--safe-top)+10px)] pb-4 flex items-center justify-between bg-[#0F1115]/90 backdrop-blur-md border-b border-white/10 shadow-xl">
+                <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-xl bg-white/5 text-[10px] font-bold text-red-400 uppercase tracking-widest hover:bg-white/10">Отмена</button>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6C5DD3] animate-pulse">Режим Редактора</span>
+                <button onClick={handleSaveLesson} className="px-4 py-2 rounded-xl bg-[#6C5DD3] text-[10px] font-bold text-white uppercase tracking-widest hover:bg-[#5b4eb5] shadow-lg shadow-[#6C5DD3]/20">Сохранить</button>
+            </div>
+
+            <div className="p-4 space-y-4 pb-40 overflow-y-auto">
+                
+                {/* 1. Basic Info Section */}
+                <EditSection 
+                    title="Основная информация" 
+                    icon="📋" 
+                    isOpen={openSection === 'info'} 
+                    onToggle={() => setOpenSection(openSection === 'info' ? 'content' : 'info')}
+                >
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Название</label>
+                            <input 
+                                value={editedLesson.title}
+                                onChange={(e) => setEditedLesson({...editedLesson, title: e.target.value})}
+                                className="w-full bg-[#1F2128] border border-white/10 p-4 rounded-xl font-bold text-white outline-none focus:border-[#6C5DD3] focus:bg-black/40 transition-all"
+                                placeholder="Например: Психология Влияния"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Тизер (Описание)</label>
+                            <textarea 
+                                value={editedLesson.description}
+                                onChange={(e) => setEditedLesson({...editedLesson, description: e.target.value})}
+                                className="w-full bg-[#1F2128] border border-white/10 p-4 rounded-xl text-xs font-medium text-white/80 outline-none focus:border-[#6C5DD3] h-20 resize-none focus:bg-black/40 transition-all"
+                                placeholder="Отображается в списке модулей..."
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Видео (YouTube)</label>
+                            <div className="flex items-center gap-2 bg-[#1F2128] border border-white/10 rounded-xl p-2 focus-within:border-[#6C5DD3] transition-all">
+                                <span className="pl-2 text-lg">📹</span>
+                                <input 
+                                    value={editedLesson.videoUrl || ''}
+                                    onChange={(e) => setEditedLesson({...editedLesson, videoUrl: e.target.value})}
+                                    className="w-full bg-transparent p-2 text-xs font-mono text-[#6C5DD3] outline-none"
+                                    placeholder="https://youtube.com/..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </EditSection>
+
+                {/* 2. Content Section */}
+                <EditSection 
+                    title="Контент Урока (Markdown)" 
+                    icon="📝" 
+                    isOpen={openSection === 'content'} 
+                    onToggle={() => setOpenSection(openSection === 'content' ? 'homework' : 'content')}
+                >
+                    <textarea 
+                        value={editedLesson.content}
+                        onChange={(e) => setEditedLesson({...editedLesson, content: e.target.value})}
+                        className="w-full bg-[#1F2128] border border-white/10 p-4 rounded-xl text-sm font-mono text-white/90 outline-none focus:border-[#6C5DD3] h-[60vh] font-medium leading-relaxed resize-y focus:bg-black/40 transition-all"
+                        placeholder="# Заголовок\n\nОсновной текст урока..."
+                    />
+                </EditSection>
+
+                {/* 3. Homework & AI Section */}
+                <EditSection 
+                    title="Боевая Задача (ДЗ)" 
+                    icon="🎯" 
+                    colorClass="text-yellow-500"
+                    isOpen={openSection === 'homework'} 
+                    onToggle={() => setOpenSection(openSection === 'homework' ? 'info' : 'homework')}
+                >
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Формат сдачи</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {['TEXT', 'PHOTO', 'VIDEO', 'FILE'].map(t => (
+                                    <button 
+                                        key={t}
+                                        onClick={() => setEditedLesson({...editedLesson, homeworkType: t as HomeworkType})}
+                                        className={`py-2 rounded-lg text-[8px] font-black uppercase border transition-all ${editedLesson.homeworkType === t ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]' : 'border-white/10 text-slate-500 hover:bg-white/5'}`}
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Текст задания (Для студента)</label>
+                            <textarea 
+                                value={editedLesson.homeworkTask}
+                                onChange={(e) => setEditedLesson({...editedLesson, homeworkTask: e.target.value})}
+                                className="w-full bg-[#1F2128] border border-white/10 p-4 rounded-xl text-sm font-medium text-white/80 outline-none focus:border-[#6C5DD3] h-24 resize-none focus:bg-black/40"
+                                placeholder="Опишите, что нужно сделать..."
+                            />
+                        </div>
+
+                        {/* Classified Section */}
+                        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 space-y-3 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-40 transition-opacity">
+                                <span className="text-4xl">🤖</span>
+                            </div>
+                            <label className="text-[9px] font-black uppercase text-red-400 tracking-widest flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                Инструкция для AI (Скрыто)
+                            </label>
+                            <textarea 
+                                value={editedLesson.aiGradingInstruction}
+                                onChange={(e) => setEditedLesson({...editedLesson, aiGradingInstruction: e.target.value})}
+                                className="w-full bg-black/40 border border-red-500/20 p-3 rounded-lg text-xs font-mono text-red-100/80 outline-none focus:border-red-500 h-32 resize-none"
+                                placeholder="Критерии оценки для ИИ. Пример: 'Проверь уверенность голоса. Отклоняй, если короче 10 слов'."
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-yellow-500 tracking-widest ml-1">Награда (XP)</label>
+                            <input 
+                                type="number"
+                                value={editedLesson.xpReward}
+                                onChange={(e) => setEditedLesson({...editedLesson, xpReward: parseInt(e.target.value) || 0})}
+                                className="w-full bg-[#1F2128] border border-yellow-500/20 p-4 rounded-xl text-xl font-black text-yellow-500 outline-none focus:border-yellow-500 text-center"
+                            />
+                        </div>
+                    </div>
+                </EditSection>
+            </div>
+        </div>
+      );
+  }
+
+  // --- STANDARD VIEW RENDER ---
   return (
     <div className="flex flex-col min-h-screen bg-body">
       {/* Premium Header */}
@@ -92,8 +275,18 @@ export const LessonView: React.FC<LessonViewProps> = ({
              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#6C5DD3] mb-0.5 block">Текущая задача</span>
              <h2 className="text-sm font-black text-text-primary truncate">{lesson.title}</h2>
         </div>
-        <div className="w-10 h-10 rounded-2xl bg-[#6C5DD3]/10 text-[#6C5DD3] flex items-center justify-center font-black text-[10px] border border-[#6C5DD3]/20">
-            {lesson.xpReward}
+        <div className="flex items-center gap-2">
+            {isAdmin && (
+                <button 
+                    onClick={() => setIsEditing(true)}
+                    className="w-10 h-10 rounded-2xl bg-[#6C5DD3]/10 text-[#6C5DD3] flex items-center justify-center border border-[#6C5DD3]/20 hover:bg-[#6C5DD3] hover:text-white transition-all"
+                >
+                    ✎
+                </button>
+            )}
+            <div className="w-10 h-10 rounded-2xl bg-[#6C5DD3]/10 text-[#6C5DD3] flex items-center justify-center font-black text-[10px] border border-[#6C5DD3]/20">
+                {lesson.xpReward}
+            </div>
         </div>
       </div>
 

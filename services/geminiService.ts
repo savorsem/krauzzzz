@@ -95,6 +95,7 @@ export const getArenaHint = async (
 
 export const evaluateArenaBattle = async (history: { role: string; text: string }[], objective: string): Promise<string> => {
   try {
+    if (!process.env.API_KEY) return 'Ошибка: API Key не найден.';
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `
 Проанализируй диалог тренировочного боя между продавцом (user) и клиентом (model).
@@ -110,10 +111,23 @@ ${history.map(m => `${m.role === 'user' ? 'Продавец' : 'Клиент'}: 
 3. 2 критические ошибки или зоны роста.
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
-      contents: prompt,
-    });
+    let response;
+    try {
+        response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview', 
+            contents: prompt,
+        });
+    } catch (e: any) {
+        if (e.toString().includes('403') || e.toString().includes('404') || e.status === 403) {
+            console.warn('Evaluation fallback to Flash');
+            response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview', 
+                contents: prompt,
+            });
+        } else {
+            throw e;
+        }
+    }
 
     return response.text || 'Командир не смог расшифровать отчет о бое.';
   } catch (error) {
@@ -217,6 +231,10 @@ export const consultSystemAgent = async (
     modules: Module[]
 ): Promise<AgentDecision> => {
     try {
+        if (!process.env.API_KEY) {
+            return { action: 'NO_ACTION', reason: 'No API Key configured', payload: {} };
+        }
+
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         // Lightweight snapshot of content quality
@@ -255,14 +273,30 @@ export const consultSystemAgent = async (
         For SEND_NOTIFICATION, payload: AppNotification
         `;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview', // Smartest model for complex logic
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                // responseSchema removed because 'payload' requires dynamic structure, which causes "empty object" errors in strict mode.
+        let response;
+        try {
+            response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview', // Smartest model for complex logic
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                }
+            });
+        } catch (e: any) {
+            // Fallback for 403 (Permission Denied) or 404 (Not Found - model)
+            if (e.toString().includes('403') || e.toString().includes('404') || e.status === 403) {
+                console.warn('System Agent: Falling back to Flash model due to permissions.');
+                response = await ai.models.generateContent({
+                    model: 'gemini-3-flash-preview', 
+                    contents: prompt,
+                    config: {
+                        responseMimeType: "application/json",
+                    }
+                });
+            } else {
+                throw e;
             }
-        });
+        }
 
         return JSON.parse(response.text || '{ "action": "NO_ACTION", "reason": "AI Failed", "payload": {} }');
     } catch (e) {
