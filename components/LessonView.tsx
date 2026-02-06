@@ -45,19 +45,34 @@ export const LessonView: React.FC<LessonViewProps> = ({
   
   // Video Player State
   const playerRef = useRef<any>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
   const [played, setPlayed] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // New Controls State
+  const [volume, setVolume] = useState(0.8);
+  const [muted, setMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
+  }, []);
+
+  // Fullscreen event listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,6 +153,27 @@ export const LessonView: React.FC<LessonViewProps> = ({
     }, 2500);
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setVolume(val);
+    if (val > 0) setMuted(false);
+  };
+
+  const toggleMute = () => {
+    setMuted(!muted);
+  };
+
+  const toggleFullscreen = () => {
+    if (!playerContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   const videoUrl = lesson.videoUrl || parentModule?.videoUrl;
   const hasVideo = !!videoUrl;
   
@@ -163,16 +199,17 @@ export const LessonView: React.FC<LessonViewProps> = ({
         {/* VIDEO PLAYER */}
         {hasVideo && (
             <div 
-                className="relative mb-8 group animate-fade-in bg-black rounded-[2rem] overflow-hidden shadow-2xl aspect-video isolate transform transition-transform"
+                ref={playerContainerRef}
+                className={`relative mb-8 group animate-fade-in bg-black rounded-[2rem] overflow-hidden shadow-2xl aspect-video isolate transform transition-all ${isFullscreen ? 'fixed inset-0 z-[9999] w-full h-full rounded-none' : ''}`}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={() => playing && setShowControls(false)}
                 onClick={handleMouseMove}
             >
-                {/* Background Glow */}
-                <div className="absolute inset-0 bg-[#6C5DD3] blur-[100px] opacity-20 pointer-events-none -z-10"></div>
+                {/* Background Glow (only in normal mode) */}
+                {!isFullscreen && <div className="absolute inset-0 bg-[#6C5DD3] blur-[100px] opacity-20 pointer-events-none -z-10"></div>}
 
                 {/* Player Wrapper */}
-                <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 z-0 bg-black">
                     <VideoPlayer 
                         ref={playerRef}
                         className="react-player" 
@@ -180,8 +217,10 @@ export const LessonView: React.FC<LessonViewProps> = ({
                         width="100%" 
                         height="100%" 
                         playing={playing}
+                        volume={muted ? 0 : volume}
+                        muted={muted}
                         controls={false}
-                        light={true}
+                        light={!playing && !isFullscreen} // Disable light mode when playing or FS to ensure custom controls work immediately
                         playIcon={
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors cursor-pointer z-10">
                                 <div className="relative w-20 h-20 flex items-center justify-center">
@@ -199,7 +238,12 @@ export const LessonView: React.FC<LessonViewProps> = ({
                         onEnded={() => setPlaying(false)}
                         config={{
                             youtube: {
-                            playerVars: { showinfo: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1 }
+                              playerVars: { showinfo: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1 }
+                            },
+                            file: {
+                                attributes: {
+                                    playsInline: true // Important for mobile FS
+                                }
                             }
                         }}
                     />
@@ -207,13 +251,39 @@ export const LessonView: React.FC<LessonViewProps> = ({
 
                 {/* Custom Controls Overlay */}
                 <div 
-                    className={`absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-opacity duration-300 pointer-events-none ${showControls || !playing ? 'opacity-100' : 'opacity-0'}`}
+                    className={`absolute inset-0 z-20 flex flex-col justify-between transition-opacity duration-300 pointer-events-none bg-black/30 ${showControls || !playing ? 'opacity-100' : 'opacity-0'}`}
                 >
-                    <div className="p-6 pb-8 space-y-4 pointer-events-auto">
-                        {/* Progress Bar */}
-                        <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-bold font-mono text-white/80 w-10">{formatDuration(played * duration)}</span>
-                            <div className="relative flex-1 h-1.5 bg-white/20 rounded-full group/slider cursor-pointer">
+                    {/* Top Shade */}
+                    <div className="h-20 bg-gradient-to-b from-black/80 to-transparent"></div>
+                    
+                    {/* Center: Play/Pause/Seek */}
+                    <div className="flex-1 flex items-center justify-center gap-8 pointer-events-auto">
+                        <button onClick={() => playerRef.current?.seekTo(played - 0.1)} className="text-white/70 hover:text-white transition-colors active:scale-90 p-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M9.195 18.44c1.25.713 2.805-.19 2.805-1.629v-2.87l3.195 1.841c1.25.714 2.805-.19 2.805-1.629v-8.31c0-1.44-1.555-2.343-2.805-1.629l-7.108 4.097c-1.25.714-1.25 2.543 0 3.257l3.108 1.793v2.457c0 1.44-1.555 2.343-2.805 1.628l-7.108-4.097a1.875 1.875 0 010-3.257l6.805-3.923a.75.75 0 00-.75-1.3L3.795 9.12a3.375 3.375 0 000 5.86l7.996 4.609c.75.432 1.696.066 1.696-.803v-2.03c0-.869-.955-1.41-1.696-.983l-2.596 1.497z" /></svg>
+                        </button>
+                        
+                        <button 
+                            onClick={handlePlayPause} 
+                            className="w-16 h-16 bg-white/90 text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] backdrop-blur-sm"
+                        >
+                            {playing ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" /></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 ml-1"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>
+                            )}
+                        </button>
+
+                        <button onClick={() => playerRef.current?.seekTo(played + 0.1)} className="text-white/70 hover:text-white transition-colors active:scale-90 p-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M14.805 18.44a1.875 1.875 0 002.805-1.629v-2.87l3.195 1.841c1.25.714 2.805-.19 2.805-1.629v-8.31c0-1.44-1.555-2.343-2.805-1.629l-7.108 4.097c-1.25.714-1.25 2.543 0 3.257l3.108 1.793v2.457c0 1.44-1.555 2.343-2.805 1.628l-7.108-4.097a1.875 1.875 0 00-3.257 0l-6.805 3.923a.75.75 0 11-.75-1.3l7.996-4.609a3.375 3.375 0 015.062 0l7.996 4.609c.75.432 1.696.066 1.696-.803v-2.03c0-.869-.955-1.41-1.696-.983l-2.596 1.497z" /></svg>
+                        </button>
+                    </div>
+
+                    {/* Bottom Controls */}
+                    <div className="p-4 md:p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-auto">
+                        {/* Progress Bar Row */}
+                        <div className="flex items-center gap-4 mb-2">
+                             <span className="text-[10px] font-mono text-white/80 font-bold min-w-[35px]">{formatDuration(played * duration)}</span>
+                             <div className="relative flex-1 h-1.5 bg-white/20 rounded-full group/slider cursor-pointer flex items-center">
                                 <input 
                                     type="range"
                                     min={0}
@@ -226,34 +296,48 @@ export const LessonView: React.FC<LessonViewProps> = ({
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
                                 />
                                 <div 
-                                    className="absolute top-0 left-0 h-full bg-[#6C5DD3] rounded-full transition-all duration-100" 
+                                    className="h-full bg-[#6C5DD3] rounded-full transition-all duration-100 relative" 
                                     style={{ width: `${played * 100}%` }}
                                 >
                                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg scale-0 group-hover/slider:scale-100 transition-transform"></div>
                                 </div>
                             </div>
-                            <span className="text-[10px] font-bold font-mono text-white/80 w-10 text-right">{formatDuration(duration)}</span>
+                            <span className="text-[10px] font-mono text-white/80 font-bold min-w-[35px] text-right">{formatDuration(duration)}</span>
                         </div>
+                        
+                        {/* Aux Controls Row */}
+                        <div className="flex items-center justify-between">
+                            {/* Volume */}
+                            <div className="flex items-center gap-2 group/vol">
+                                <button 
+                                    onClick={toggleMute} 
+                                    className="text-white/70 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-all"
+                                >
+                                    {muted || volume === 0 ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.5 12a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-.008a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75V12z" /></svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM17.78 9.22a.75.75 0 10-1.06 1.06L16.94 10.5l-1.22.22a.75.75 0 001.06 1.06l1.22-1.22 1.22 1.22a.75.75 0 101.06-1.06l-1.22-1.22 1.22-1.22a.75.75 0 00-1.06-1.06l-1.22 1.22-1.22-1.22z" /></svg>
+                                    )}
+                                </button>
+                                <input 
+                                    type="range" 
+                                    min={0} max={1} step={0.1}
+                                    value={muted ? 0 : volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hover:accent-[#6C5DD3] transition-all opacity-50 group-hover/vol:opacity-100"
+                                />
+                            </div>
 
-                        {/* Controls */}
-                        <div className="flex items-center justify-center gap-8">
-                            <button onClick={() => playerRef.current?.seekTo(played - 0.1)} className="text-white/60 hover:text-white transition-colors active:scale-90">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M9.195 18.44c1.25.713 2.805-.19 2.805-1.629v-2.87l3.195 1.841c1.25.714 2.805-.19 2.805-1.629v-8.31c0-1.44-1.555-2.343-2.805-1.629l-7.108 4.097c-1.25.714-1.25 2.543 0 3.257l3.108 1.793v2.457c0 1.44-1.555 2.343-2.805 1.628l-7.108-4.097a1.875 1.875 0 010-3.257l6.805-3.923a.75.75 0 00-.75-1.3L3.795 9.12a3.375 3.375 0 000 5.86l7.996 4.609c.75.432 1.696.066 1.696-.803v-2.03c0-.869-.955-1.41-1.696-.983l-2.596 1.497z" /></svg>
-                            </button>
-                            
+                            {/* Fullscreen */}
                             <button 
-                                onClick={handlePlayPause} 
-                                className="w-14 h-14 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                                onClick={toggleFullscreen} 
+                                className="text-white/70 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-all"
                             >
-                                {playing ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" /></svg>
+                                {isFullscreen ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3.75 3.75a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm1.5 0a.75.75 0 010 1.5h-4.5a.75.75 0 010-1.5h4.5zm13.5 0a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 0a.75.75 0 010 1.5h4.5a.75.75 0 010-1.5h-4.5zM3.75 20.25a.75.75 0 01-.75-.75v-4.5a.75.75 0 011.5 0v4.5a.75.75 0 01-.75.75zm1.5 0a.75.75 0 010-1.5h-4.5a.75.75 0 010 1.5h4.5zm15-4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm-1.5 4.5a.75.75 0 010-1.5h4.5a.75.75 0 010 1.5h-4.5z" clipRule="evenodd" /></svg>
                                 ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-1"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3 3a.75.75 0 01.75-.75h5.5a.75.75 0 010 1.5H4.5v4.75a.75.75 0 01-1.5 0V3zm16.25 1.5a.75.75 0 010-1.5h4.75a.75.75 0 01.75.75v5.5a.75.75 0 01-1.5 0V4.5h-4zm-4 16.25a.75.75 0 010 1.5h-5.5a.75.75 0 010-1.5h4.75v-4.75a.75.75 0 011.5 0v5.5zm10.5-5.5a.75.75 0 01.75.75v4.75a.75.75 0 01-.75.75h-5.5a.75.75 0 010-1.5h4.75v-4zm-15 0a.75.75 0 01.75-.75h4.75a.75.75 0 010 1.5H5.25v4a.75.75 0 01-1.5 0v-4.75z" clipRule="evenodd" /></svg>
                                 )}
-                            </button>
-
-                            <button onClick={() => playerRef.current?.seekTo(played + 0.1)} className="text-white/60 hover:text-white transition-colors active:scale-90">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M14.805 18.44a1.875 1.875 0 002.805-1.629v-2.87l3.195 1.841c1.25.714 2.805-.19 2.805-1.629v-8.31c0-1.44-1.555-2.343-2.805-1.629l-7.108 4.097c-1.25.714-1.25 2.543 0 3.257l3.108 1.793v2.457c0 1.44-1.555 2.343-2.805 1.628l-7.108-4.097a1.875 1.875 0 00-3.257 0l-6.805 3.923a.75.75 0 11-.75-1.3l7.996-4.609a3.375 3.375 0 015.062 0l7.996 4.609c.75.432 1.696.066 1.696-.803v-2.03c0-.869-.955-1.41-1.696-.983l-2.596 1.497z" /></svg>
                             </button>
                         </div>
                     </div>
