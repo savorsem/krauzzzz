@@ -27,7 +27,7 @@ export const ModuleList: React.FC<ModuleListProps> = ({ modules, userProgress, o
   };
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-8">
         {modules.map((module, index) => {
             const isLocked = userProgress.level < module.minLevel;
             const completedCount = module.lessons.filter(l => userProgress.completedLessonIds.includes(l.id)).length;
@@ -48,76 +48,48 @@ export const ModuleList: React.FC<ModuleListProps> = ({ modules, userProgress, o
                     key={module.id}
                     onClick={() => handleModuleClick(module, isLocked)}
                     className={`
-                        relative w-full rounded-[2.5rem] overflow-hidden transition-all duration-300 group select-none
+                        relative w-full rounded-3xl overflow-hidden transition-all duration-300 group select-none min-h-[110px]
                         ${shakingId === module.id ? 'animate-shake' : ''}
-                        ${isLocked ? 'grayscale opacity-80' : 'cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-xl'}
+                        ${isLocked ? 'grayscale opacity-70' : 'cursor-pointer hover:scale-[1.02] active:scale-[0.99] shadow-lg'}
                     `}
                     style={{ 
                         backgroundColor: '#14161B',
-                        boxShadow: isLocked ? 'none' : `0 10px 30px -10px ${accentColor}40`
+                        boxShadow: isLocked ? 'none' : `0 4px 20px -5px ${accentColor}20`,
+                        border: '1px solid rgba(255,255,255,0.05)'
                     }}
                 >
                     {/* Top Accent Line */}
-                    <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: accentColor }}></div>
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: accentColor }}></div>
 
-                    {/* Background Pattern */}
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay"></div>
-                    
                     {/* Content Container */}
-                    <div className="relative z-10 p-6 flex flex-col h-full min-h-[160px] justify-between">
+                    <div className="relative z-10 p-4 pl-6 flex flex-col h-full justify-between">
                         
-                        {/* Header: Number & Status */}
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Module</span>
-                                <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 leading-none tracking-tighter" style={{ textShadow: `0 0 30px ${accentColor}20` }}>
+                        {/* Header: Number & Title */}
+                        <div className="flex justify-between items-start gap-4">
+                            <div className="flex flex-col">
+                                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 leading-none tracking-tighter opacity-20 absolute right-2 top-2 pointer-events-none">
                                     {moduleNum}
                                 </h2>
-                            </div>
-                            
-                            {isLocked ? (
-                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                                    <span className="text-xl">🔒</span>
-                                </div>
-                            ) : (
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}20`, color: accentColor, border: `1px solid ${accentColor}40` }}>
-                                    <span className="text-xs font-black">{progressPercent}%</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Middle: Title */}
-                        <div className="mt-4 mb-4">
-                            <h3 className="text-xl font-bold text-white leading-tight mb-1 line-clamp-2">
-                                {module.title}
-                            </h3>
-                            <p className="text-[10px] font-bold uppercase tracking-wider opacity-60" style={{ color: accentColor }}>
-                                {module.category} SERIES
-                            </p>
-                        </div>
-
-                        {/* Bottom: Progress Bar */}
-                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full transition-all duration-1000 ease-out relative"
-                                style={{ width: `${progressPercent}%`, backgroundColor: accentColor }}
-                            >
-                                <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/50 blur-[2px]"></div>
+                                <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 pr-6 z-10">
+                                    {module.title}
+                                </h3>
+                                <p className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-1" style={{ color: accentColor }}>
+                                    {module.category}
+                                </p>
                             </div>
                         </div>
-                        
-                        <div className="flex justify-between items-center mt-2">
-                            <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{completedCount}/{totalCount} completed</span>
-                            {!isLocked && (
-                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 group-hover:gap-2 transition-all" style={{ color: accentColor }}>
-                                    Start <span className="text-lg leading-none">→</span>
-                                </span>
-                            )}
-                            {isLocked && (
-                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">
-                                    Locked (Lvl {module.minLevel})
-                                </span>
-                            )}
+
+                        {/* Bottom: Progress */}
+                        <div className="mt-3 flex items-center gap-3">
+                             <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${progressPercent}%`, backgroundColor: accentColor }}
+                                ></div>
+                             </div>
+                             <span className="text-[9px] font-black text-white/40 min-w-[24px] text-right">
+                                 {isLocked ? '🔒' : `${progressPercent}%`}
+                             </span>
                         </div>
                     </div>
                 </div>

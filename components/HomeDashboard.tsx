@@ -26,24 +26,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onSelectLesson,
   notifications = []
 }) => {
-  const [activeCategory, setActiveCategory] = useState<'ALL' | 'SALES' | 'PSYCHOLOGY' | 'TACTICS'>('ALL');
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Calculate overall course progress
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
   const completedCount = userProgress.completedLessonIds.length;
   const overallProgress = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-
-  const filteredModules = activeCategory === 'ALL' 
-    ? modules 
-    : modules.filter(m => m.category === activeCategory);
-
-  const categories = [
-    { id: 'ALL', label: 'Все', icon: '💠' },
-    { id: 'SALES', label: 'Продажи', icon: '💰' },
-    { id: 'PSYCHOLOGY', label: 'Психология', icon: '🧠' },
-    { id: 'TACTICS', label: 'Тактика', icon: '⚔️' }
-  ] as const;
 
   const handleNotificationsToggle = () => {
       setShowNotifications(!showNotifications);
@@ -114,7 +102,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
       </div>
 
-      <div className="px-5 pt-6 pb-32 space-y-8 animate-fade-in max-w-2xl mx-auto">
+      <div className="px-5 pt-6 pb-32 space-y-8 animate-fade-in max-w-4xl mx-auto">
         
         {/* PROGRESS & NEXT LESSON CARD */}
         <div className="relative bg-card rounded-[2.5rem] p-6 shadow-xl border border-border-color overflow-hidden">
@@ -183,29 +171,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                  <div className="flex justify-between items-end">
                     <h3 className="text-lg font-black text-text-primary uppercase tracking-tight">Учебный план</h3>
                     <span className="text-[10px] font-bold text-text-secondary bg-surface px-2 py-1 rounded-lg border border-border-color">
-                        {filteredModules.length} доступно
+                        {modules.length} модулей
                     </span>
                  </div>
-                 
-                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-5 px-5 md:mx-0 md:px-0">
-                    {categories.map(cat => (
-                        <button 
-                            key={cat.id}
-                            onClick={() => { telegram.haptic('selection'); setActiveCategory(cat.id as any); }}
-                            className={`
-                                flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase whitespace-nowrap transition-all border flex-shrink-0
-                                ${activeCategory === cat.id 
-                                    ? 'bg-[#6C5DD3] text-white border-[#6C5DD3] shadow-lg shadow-[#6C5DD3]/20 scale-105' 
-                                    : 'bg-surface text-text-secondary border-border-color hover:bg-body hover:border-[#6C5DD3]/30'}
-                            `}
-                        >
-                            <span className="text-base leading-none">{cat.icon}</span>
-                            <span>{cat.label}</span>
-                        </button>
-                    ))}
-                 </div>
              </div>
-             <ModuleList modules={filteredModules} userProgress={userProgress} onSelectLesson={onSelectLesson} onBack={() => {}} />
+             <ModuleList modules={modules} userProgress={userProgress} onSelectLesson={onSelectLesson} onBack={() => {}} />
         </div>
       </div>
     </div>

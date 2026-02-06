@@ -95,7 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
 
             <h2 className="text-xl font-black uppercase text-slate-900 dark:text-white">Личный состав ({users.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {users.map((u, idx) => (
                     <div key={idx} className="bg-white dark:bg-[#14161B] p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-[#6C5DD3]/30 transition-all shadow-sm">
                         <div className="flex items-center gap-3">
@@ -320,7 +320,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {activeSubTab === 'MATERIALS' && (
                 <div>
                     <div className="flex justify-between mb-4 items-center"><h3 className="font-bold uppercase text-sm text-slate-900 dark:text-white">База Знаний</h3><Button onClick={addMat} className="!py-1 !px-3 !text-[10px]">+</Button></div>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {materials.map(m => (
                             <div key={m.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2 relative group">
                                 <div className="flex gap-2">
@@ -361,7 +361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {activeSubTab === 'ARENA' && (
                 <div>
                     <div className="flex justify-between mb-4 items-center"><h3 className="font-bold uppercase text-sm text-slate-900 dark:text-white">Арена</h3><Button onClick={addScen} className="!py-1 !px-3 !text-[10px]">+</Button></div>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {scenarios.map(s => (
                             <div key={s.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
                                 <div className="flex gap-2">
@@ -408,6 +408,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // --- SYSTEM (CONFIG + NOTIFICATIONS) ---
   const renderSettings = () => {
+      // Safe access to nested properties
+      const maintenanceMode = config?.features?.maintenanceMode || false;
+      const appName = config?.appName || '';
+
       const [notifTitle, setNotifTitle] = useState('');
       const [notifMsg, setNotifMsg] = useState('');
       const [notifType, setNotifType] = useState<AppNotification['type']>('INFO');
@@ -464,12 +468,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <h3 className="font-black text-slate-900 dark:text-white uppercase">Конфигурация</h3>
                   <div>
                       <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Название Приложения</label>
-                      <input value={config.appName} onChange={(e) => onUpdateConfig({...config, appName: e.target.value})} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold text-slate-900 dark:text-white" />
+                      <input value={appName} onChange={(e) => onUpdateConfig({...config, appName: e.target.value})} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold text-slate-900 dark:text-white" />
                   </div>
                   <div className="flex items-center justify-between pt-2">
                       <span className="text-sm font-bold text-slate-900 dark:text-white">Режим обслуживания</span>
-                      <div onClick={() => onUpdateConfig({...config, features: {...config.features, maintenanceMode: !config.features.maintenanceMode}})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${config.features.maintenanceMode ? 'bg-[#6C5DD3]' : 'bg-slate-300 dark:bg-white/10'}`}>
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.features.maintenanceMode ? 'left-7' : 'left-1'}`}></div>
+                      <div onClick={() => onUpdateConfig({...config, features: {...config.features, maintenanceMode: !maintenanceMode}})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${maintenanceMode ? 'bg-[#6C5DD3]' : 'bg-slate-300 dark:bg-white/10'}`}>
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${maintenanceMode ? 'left-7' : 'left-1'}`}></div>
                       </div>
                   </div>
               </div>
@@ -526,19 +530,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           });
       };
 
-      const updateKey = (provider: string, key: string) => {
-          onUpdateConfig({
-              ...config,
-              aiConfig: {
-                  ...config.aiConfig,
-                  apiKeys: {
-                      ...config.aiConfig.apiKeys,
-                      [provider.toLowerCase().split('_')[0]]: key // simplistic mapping, better to use strict keys
-                  }
-              }
-          });
-      };
-      
       // Strict mapping for keys based on AIConfig interface
       const setKey = (field: 'google' | 'openai' | 'anthropic' | 'groq' | 'openrouter', val: string) => {
            onUpdateConfig({
