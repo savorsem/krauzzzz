@@ -32,7 +32,7 @@ interface LessonViewProps {
 }
 
 export const LessonView: React.FC<LessonViewProps> = ({ 
-  lesson: propLesson, 
+  lesson, 
   isCompleted, 
   onComplete, 
   onBack, 
@@ -41,12 +41,6 @@ export const LessonView: React.FC<LessonViewProps> = ({
   onUpdateUser,
   onUpdateLesson
 }) => {
-  // Override description for lesson l1-2 as per specific content requirement
-  const lesson = { ...propLesson };
-  if (lesson.id === 'l1-2') {
-      lesson.description = 'Кодекс Воина Продаж: Честь, дисциплина, результат. Изучи кодекс, отделяющий профессионала от рыночного торговца.';
-  }
-
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -168,15 +162,23 @@ export const LessonView: React.FC<LessonViewProps> = ({
         </button>
         <div className="flex flex-col items-center">
              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#6C5DD3] mb-0.5">Lesson Access</span>
-             <span className="text-xs font-bold text-white max-w-[200px] truncate">{lesson.title}</span>
+             <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white max-w-[200px] truncate">{lesson.title}</span>
+                {isAdmin && (
+                    <button 
+                        onClick={() => setIsEditing(!isEditing)} 
+                        className={`w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-[#6C5DD3] transition-colors ${isEditing ? 'text-[#6C5DD3] bg-white/20' : 'text-slate-400'}`}
+                        title="Edit Lesson"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                            <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+                            <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+                        </svg>
+                    </button>
+                )}
+             </div>
         </div>
-        <div className="w-10 flex justify-end">
-            {isAdmin && (
-                <button onClick={() => setIsEditing(!isEditing)} className={`text-xs font-black uppercase ${isEditing ? 'text-[#6C5DD3]' : 'text-slate-400'}`}>
-                    {isEditing ? 'Close' : 'Edit'}
-                </button>
-            )}
-        </div>
+        <div className="w-10"></div>
       </div>
 
       <div className="px-4 md:px-6 max-w-2xl mx-auto w-full pt-6">
