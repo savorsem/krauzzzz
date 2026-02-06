@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Tab, UserProgress, Lesson, AppConfig, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification } from './types';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from './constants';
 import { HomeDashboard } from './components/HomeDashboard';
@@ -91,72 +91,92 @@ const App: React.FC = () => {
   const activeLesson = selectedLessonId ? modules.flatMap(m => m.lessons).find(l => l.id === selectedLessonId) : null;
   const activeModule = activeLesson ? modules.find(m => m.lessons.some(l => l.id === activeLesson.id)) : null;
 
-  // --- AUTOMATIC SYNCHRONIZATION (POLLING) ---
-  useEffect(() => {
-      const syncData = async () => {
-          // 1. Sync Global Config
-          const remoteConfig = await Backend.fetchGlobalConfig(appConfig);
-          if (JSON.stringify(remoteConfig) !== JSON.stringify(appConfig)) {
-              setAppConfig(remoteConfig);
-              Storage.set('appConfig', remoteConfig);
-          }
+  // --- AUTOMATIC SYNCHRONIZATION ---
+  
+  const syncData = useCallback(async () => {
+      // 1. Sync Global Config
+      const remoteConfig = await Backend.fetchGlobalConfig(appConfig);
+      if (JSON.stringify(remoteConfig) !== JSON.stringify(appConfig)) {
+          setAppConfig(remoteConfig);
+      }
 
-          // 2. Sync Notifications
-          const rawNotifs = await Backend.fetchNotifications();
-          // Filter to show relevant notifications for user, plus any global ones
-          // Since Backend uses local storage for "local_notifications", this sync effectively just reloads
-          // what might have been added by Admin in same session or different tab.
-          // For a real backend, this would filter by user ID.
-          setNotifications(rawNotifs);
+      // 2. Sync Notifications
+      const rawNotifs = await Backend.fetchNotifications();
+      // Filter relevant notifications
+      const myNotifs = rawNotifs.filter(n => {
+          if (n.targetUserId && n.targetUserId !== userProgress.telegramId) return false;
+          if (n.targetRole && n.targetRole !== 'ALL' && n.targetRole !== userProgress.role) return false;
+          return true;
+      });
 
-          if (rawNotifs.length > prevNotifCount.current && prevNotifCount.current > 0) {
-              const latest = rawNotifs[0];
-              if (latest) {
-                   addToast(latest.type === 'ALERT' ? 'error' : 'info', latest.title, latest.link);
-                   telegram.haptic('success');
-              }
+      // Simple diff check for new notification alert
+      if (myNotifs.length > notifications.length) {
+          const latest = myNotifs[0];
+          // Ensure we don't alert for old ones if we just loaded app
+          if (latest && latest.date > new Date(Date.now() - 10000).toISOString()) { 
+               addToast(latest.type === 'ALERT' ? 'error' : 'info', latest.title, latest.link);
+               telegram.haptic('success');
           }
-          prevNotifCount.current = rawNotifs.length;
+      }
+      setNotifications(myNotifs);
+      
+      // 3. Sync Content
+      const content = await Backend.fetchAllContent();
+      if (content) {
+          if (JSON.stringify(content.modules) !== JSON.stringify(modules)) setModules(content.modules);
+          if (JSON.stringify(content.materials) !== JSON.stringify(materials)) setMaterials(content.materials);
+          if (JSON.stringify(content.streams) !== JSON.stringify(streams)) setStreams(content.streams);
+          if (JSON.stringify(content.events) !== JSON.stringify(events)) setEvents(content.events);
+          if (JSON.stringify(content.scenarios) !== JSON.stringify(scenarios)) setScenarios(content.scenarios);
+      }
+
+      // 4. Sync User List
+      const remoteUsers = await Backend.getLeaderboard();
+      if (JSON.stringify(remoteUsers) !== JSON.stringify(allUsers)) {
+          setAllUsers(remoteUsers);
+      }
+
+      // 5. Sync Current User Role/Stats
+      if (userProgress.isAuthenticated) {
+          const freshUser = await Backend.syncUser(userProgress);
           
-          // 3. Sync Content (Modules, Materials, Streams, etc.)
-          const content = await Backend.fetchAllContent();
-          if (content) {
-              if (JSON.stringify(content.modules) !== JSON.stringify(modules)) setModules(content.modules);
-              if (JSON.stringify(content.materials) !== JSON.stringify(materials)) setMaterials(content.materials);
-              if (JSON.stringify(content.streams) !== JSON.stringify(streams)) setStreams(content.streams);
-              if (JSON.stringify(content.events) !== JSON.stringify(events)) setEvents(content.events);
-              if (JSON.stringify(content.scenarios) !== JSON.stringify(scenarios)) setScenarios(content.scenarios);
+          // Only update if critical fields changed
+          if (freshUser.role !== userProgress.role || freshUser.level !== userProgress.level || freshUser.xp !== userProgress.xp) {
+              setUserProgress(prev => ({ 
+                  ...prev, 
+                  role: freshUser.role,
+                  level: freshUser.level,
+                  xp: freshUser.xp,
+                  name: freshUser.name // Also sync name in case admin changed it
+              }));
           }
+      }
+  }, [appConfig, userProgress, modules, materials, streams, events, scenarios, allUsers, notifications]);
 
-          // 4. Sync User List (for Leaderboard & Admin)
-          const remoteUsers = await Backend.getLeaderboard();
-          if (JSON.stringify(remoteUsers) !== JSON.stringify(allUsers)) {
-              setAllUsers(remoteUsers);
-              Storage.set('allUsers', remoteUsers);
-          }
-
-          // 5. Sync Current User Role/Stats
-          if (userProgress.isAuthenticated) {
-              const freshUser = await Backend.syncUser(userProgress);
-              
-              if (freshUser.role !== userProgress.role || freshUser.level !== userProgress.level || Math.abs(freshUser.xp - userProgress.xp) > 50) {
-                  setUserProgress(prev => ({ 
-                      ...prev, 
-                      role: freshUser.role,
-                      level: freshUser.level,
-                      xp: freshUser.xp
-                  }));
-              }
-          }
-      };
-
-      // Initial Call
+  // Setup Event Listener and Polling
+  useEffect(() => {
+      // Initial Sync
       syncData();
 
-      // Poll every 5 seconds for faster updates during testing
-      const interval = setInterval(syncData, 5000);
+      // Listen for broadcasts from other tabs (Admin -> User sync)
+      Backend.onSync(() => {
+          syncData();
+      });
+
+      // Poll as backup (every 10 seconds)
+      const interval = setInterval(syncData, 10000);
       return () => clearInterval(interval);
-  }, [userProgress.isAuthenticated, appConfig, userProgress.role, modules, materials, streams, events, scenarios, allUsers]);
+  }, []); // Remove dependencies to prevent loop, syncData is stable enough or handles its own deps via refs if needed, but here simple closure is fine for interval, for valid closure we might need to use refs or include syncData in deps if we wrap it in useCallback correctly.
+  // Actually, to avoid stale closures in setInterval, we should use a ref for the callback or depend on [syncData].
+  // But since syncData depends on state, it changes often.
+  // Let's rely on BroadcastChannel mostly and a slower poll.
+  
+  // Re-attach poll when syncData changes to ensure fresh closure
+  useEffect(() => {
+      const interval = setInterval(syncData, 10000);
+      return () => clearInterval(interval);
+  }, [syncData]);
+
 
   // --- THEME & PERSISTENCE ---
   useEffect(() => {
@@ -221,7 +241,7 @@ const App: React.FC = () => {
 
   const handleUpdateUser = (data: Partial<UserProgress>) => setUserProgress(prev => ({ ...prev, ...data }));
 
-  // --- ADMIN ACTIONS ---
+  // --- ADMIN ACTIONS (With Immediate Local State Update) ---
 
   const handleUpdateModules = (newModules: Module[]) => { 
       setModules(newModules); 
@@ -250,7 +270,7 @@ const App: React.FC = () => {
   const handleUpdateAllUsers = (newUsers: UserProgress[]) => {
       setAllUsers(newUsers);
       Storage.set('allUsers', newUsers);
-      // Backend.saveUsers(newUsers) - ideally
+      Backend.saveUser(newUsers.find(u => u.telegramId === userProgress.telegramId) || userProgress); // Sync logic wrapper
   };
   const handleSendBroadcast = (notification: AppNotification) => {
       Backend.sendBroadcast(notification);
@@ -260,6 +280,8 @@ const App: React.FC = () => {
   const handleClearNotifications = () => {
       Storage.set('local_notifications', []);
       setNotifications([]);
+      // Need to tell backend to clear too in a real app, here we just clear local
+      Backend.saveCollection('notifications', []); // Hack to trigger sync
       addToast('info', 'История очищена');
   };
   
