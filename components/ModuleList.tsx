@@ -27,7 +27,7 @@ export const ModuleList: React.FC<ModuleListProps> = ({ modules, userProgress, o
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-4">
         {modules.map((module, index) => {
             const isLocked = userProgress.level < module.minLevel;
             const completedCount = module.lessons.filter(l => userProgress.completedLessonIds.includes(l.id)).length;
@@ -45,50 +45,50 @@ export const ModuleList: React.FC<ModuleListProps> = ({ modules, userProgress, o
                     key={module.id}
                     onClick={() => handleModuleClick(module, isLocked)}
                     className={`
-                        relative w-full rounded-[2.5rem] p-1 overflow-hidden transition-all duration-300 group
+                        relative w-full rounded-[2rem] md:rounded-[2.5rem] p-1 overflow-hidden transition-all duration-300 group
                         ${shakingId === module.id ? 'animate-shake' : ''}
-                        ${isLocked ? 'opacity-70 grayscale cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-xl'}
+                        ${isLocked ? 'opacity-80 grayscale cursor-not-allowed' : 'hover:scale-[1.01] active:scale-[0.98] cursor-pointer shadow-lg'}
                     `}
                 >
                     {/* Glassy Border Container */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-[2.5rem] pointer-events-none z-20"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-[2rem] md:rounded-[2.5rem] pointer-events-none z-20"></div>
                     
-                    {/* Main Card Content */}
-                    <div className={`relative h-48 rounded-[2.3rem] overflow-hidden flex flex-col justify-end p-6 ${isLocked ? 'bg-[#14161B]' : 'bg-[#14161B]'}`}>
+                    {/* Main Card Content - Responsive Height */}
+                    <div className={`relative min-h-[12rem] h-auto rounded-[1.8rem] md:rounded-[2.3rem] overflow-hidden flex flex-col justify-end p-5 md:p-6 ${isLocked ? 'bg-[#14161B]' : 'bg-[#14161B]'}`}>
                         
                         {/* Background Image/Gradient */}
                         <div className={`absolute inset-0 bg-gradient-to-t ${gradient} z-0`}></div>
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 z-0 mix-blend-overlay"></div>
                         
                         {/* Status Badge */}
-                        <div className="absolute top-5 right-5 z-10">
+                        <div className="absolute top-4 right-4 md:top-5 md:right-5 z-10">
                             {isLocked ? (
-                                <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10">
+                                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10">
                                     🔒
                                 </div>
                             ) : (
-                                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20 text-white font-black text-xs">
+                                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20 text-white font-black text-[10px] md:text-xs">
                                     {progressPercent}%
                                 </div>
                             )}
                         </div>
 
                         {/* Text Content */}
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 mb-2">
+                        <div className="relative z-10 flex flex-col gap-1">
+                            <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 rounded-md bg-black/30 backdrop-blur-md text-[8px] font-black uppercase tracking-widest text-white/80 border border-white/10">
                                     Модуль {index + 1}
                                 </span>
                                 {isLocked && <span className="px-2 py-0.5 rounded-md bg-red-500/80 text-[8px] font-black uppercase tracking-widest text-white">Lvl {module.minLevel}</span>}
                             </div>
                             
-                            <h3 className="text-2xl font-black text-white leading-tight mb-2 drop-shadow-lg max-w-[80%]">
+                            <h3 className="text-xl md:text-2xl font-black text-white leading-tight drop-shadow-lg max-w-[85%] break-words">
                                 {module.title}
                             </h3>
                             
                             {/* Progress Line */}
                             {!isLocked && (
-                                <div className="w-full h-1.5 bg-black/30 rounded-full overflow-hidden mt-2 backdrop-blur-sm">
+                                <div className="w-full h-1.5 bg-black/30 rounded-full overflow-hidden mt-3 backdrop-blur-sm">
                                     <div 
                                         className="h-full bg-white shadow-[0_0_10px_white] transition-all duration-1000 ease-out" 
                                         style={{ width: `${progressPercent}%` }}

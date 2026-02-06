@@ -220,7 +220,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
   return (
     <div className="flex flex-col min-h-screen pb-32 w-full animate-slide-in bg-body text-text-primary transition-colors duration-300">
       {/* HEADER */}
-      <div className="sticky top-0 z-40 px-5 pt-[calc(var(--safe-top)+10px)] pb-4 flex items-center justify-between bg-body/80 backdrop-blur-xl border-b border-border-color shadow-sm transition-all">
+      <div className="sticky top-0 z-40 px-4 md:px-6 pt-[calc(var(--safe-top)+10px)] pb-3 flex items-center justify-between bg-body/80 backdrop-blur-xl border-b border-border-color shadow-sm transition-all">
         <button onClick={onBack} className="w-10 h-10 rounded-full bg-surface border border-border-color flex items-center justify-center text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors active:scale-95">
            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -233,7 +233,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
         <div className="w-10"></div>
       </div>
 
-      <div className="px-5 max-w-2xl mx-auto w-full pt-6">
+      <div className="px-4 md:px-6 max-w-2xl mx-auto w-full pt-6">
         {/* VIDEO PLAYER */}
         {hasVideo && (
             <div 
@@ -387,7 +387,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
         )}
 
         {/* CONTENT CARD */}
-        <div className="bg-surface p-6 md:p-8 rounded-[2.5rem] border border-border-color mb-8 relative overflow-hidden shadow-lg transition-colors">
+        <div className="bg-surface p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-border-color mb-8 relative overflow-hidden shadow-lg transition-colors">
             <div className="flex items-center gap-3 mb-5">
                <span className="bg-[#6C5DD3]/10 text-[#6C5DD3] border border-[#6C5DD3]/20 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                  +{lesson.xpReward} XP (База)
@@ -397,34 +397,34 @@ export const LessonView: React.FC<LessonViewProps> = ({
                </span>}
             </div>
 
-            <h2 className="text-3xl font-black text-text-primary mb-6 leading-tight tracking-tight">{lesson.title}</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-text-primary mb-6 leading-tight tracking-tight break-words">{lesson.title}</h2>
             
             <div className="markdown-content">
                 <ReactMarkdown
                     components={{
-                        h1: (props) => <h1 className="text-2xl font-black mt-8 mb-4 text-[#6C5DD3] leading-tight" {...props} />,
-                        h2: (props) => <h2 className="text-xl font-bold mt-6 mb-3 text-text-primary border-l-4 border-[#6C5DD3] pl-3" {...props} />,
-                        h3: (props) => <h3 className="text-lg font-bold mt-5 mb-2 text-text-primary" {...props} />,
-                        p: (props) => <p className="mb-4 leading-relaxed text-text-secondary font-medium" {...props} />,
+                        h1: (props) => <h1 className="text-xl md:text-2xl font-black mt-8 mb-4 text-[#6C5DD3] leading-tight" {...props} />,
+                        h2: (props) => <h2 className="text-lg md:text-xl font-bold mt-6 mb-3 text-text-primary border-l-4 border-[#6C5DD3] pl-3" {...props} />,
+                        h3: (props) => <h3 className="text-base md:text-lg font-bold mt-5 mb-2 text-text-primary" {...props} />,
+                        p: (props) => <p className="mb-4 leading-relaxed text-text-secondary font-medium text-sm md:text-base" {...props} />,
                         ul: (props) => <ul className="list-disc pl-5 mb-6 space-y-2 text-text-secondary marker:text-[#6C5DD3]" {...props} />,
                         ol: (props) => <ol className="list-decimal pl-5 mb-6 space-y-2 text-text-secondary marker:text-[#6C5DD3] font-bold" {...props} />,
-                        li: (props) => <li className="pl-1" {...props} />,
+                        li: (props) => <li className="pl-1 text-sm md:text-base" {...props} />,
                         blockquote: (props) => (
                             <div className="relative my-8 group">
                                 <div className="absolute -left-2 top-0 bottom-0 w-1 bg-[#6C5DD3] rounded-full opacity-50"></div>
-                                <blockquote className="pl-6 italic text-text-primary font-medium text-lg leading-relaxed opacity-90" {...props} />
+                                <blockquote className="pl-6 italic text-text-primary font-medium text-base md:text-lg leading-relaxed opacity-90" {...props} />
                                 <div className="absolute top-[-10px] left-2 text-4xl text-[#6C5DD3] opacity-20 font-serif">"</div>
                             </div>
                         ),
-                        code: (props) => <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-xs font-mono text-[#6C5DD3] font-bold" {...props} />,
+                        code: (props) => <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-xs font-mono text-[#6C5DD3] font-bold break-all" {...props} />,
                         pre: (props) => (
-                            <div className="relative group my-6">
+                            <div className="relative group my-6 max-w-full">
                                 <div className="absolute -inset-1 bg-gradient-to-r from-[#6C5DD3] to-transparent opacity-10 rounded-2xl blur-sm"></div>
                                 <pre className="relative bg-[#0F1115] p-5 rounded-2xl overflow-x-auto text-sm border border-white/5 shadow-inner custom-scrollbar" {...props} />
                                 <div className="absolute top-2 right-4 text-[9px] font-black uppercase text-white/20 tracking-widest">Script</div>
                             </div>
                         ),
-                        a: (props) => <a className="text-[#6C5DD3] underline underline-offset-4 decoration-2 decoration-[#6C5DD3]/30 hover:decoration-[#6C5DD3] transition-all font-bold" {...props} />,
+                        a: (props) => <a className="text-[#6C5DD3] underline underline-offset-4 decoration-2 decoration-[#6C5DD3]/30 hover:decoration-[#6C5DD3] transition-all font-bold break-all" {...props} />,
                         strong: (props) => <strong className="font-bold text-text-primary" {...props} />,
                         em: (props) => <em className="text-[#6C5DD3] not-italic font-bold" {...props} />,
                         hr: (props) => <hr className="my-8 border-t-2 border-border-color border-dashed" {...props} />,
@@ -436,7 +436,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
         </div>
 
         {/* QUESTIONS TO CURATOR (RULE 4) */}
-        <div className="bg-[#14161B] p-6 rounded-[2.5rem] border border-white/5 mb-8 relative overflow-hidden shadow-lg">
+        <div className="bg-[#14161B] p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-white/5 mb-8 relative overflow-hidden shadow-lg">
              <div className="flex justify-between items-center mb-4">
                  <h3 className="text-white font-bold text-lg">Вопрос в Штаб</h3>
                  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${questionsRemaining > 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
@@ -466,17 +466,17 @@ export const LessonView: React.FC<LessonViewProps> = ({
 
         {/* HOMEWORK SECTION */}
         {!isCompleted ? (
-            <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-border-color group bg-[#14161B]">
+            <div className="relative rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-border-color group bg-[#14161B]">
                 {/* Diagonal Stripe Decor */}
                 <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(45deg, #fff 25%, transparent 25%, transparent 50%, #fff 50%, #fff 75%, transparent 75%, transparent)', backgroundSize: '20px 20px' }}></div>
 
-                <div className="relative z-10 p-6 md:p-8 text-white">
+                <div className="relative z-10 p-5 md:p-8 text-white">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-14 h-14 rounded-2xl bg-[#6C5DD3] flex items-center justify-center text-2xl shadow-lg shadow-[#6C5DD3]/30 text-white">
+                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-[#6C5DD3] flex items-center justify-center text-xl md:text-2xl shadow-lg shadow-[#6C5DD3]/30 text-white">
                             {lesson.homeworkType === 'VIDEO' ? '📹' : lesson.homeworkType === 'PHOTO' ? '📸' : lesson.homeworkType === 'FILE' ? '📄' : '✍️'}
                         </div>
                         <div>
-                            <h3 className="font-black text-xl leading-tight text-white tracking-tight">Боевая задача</h3>
+                            <h3 className="font-black text-lg md:text-xl leading-tight text-white tracking-tight">Боевая задача</h3>
                             <p className="text-[#6C5DD3] text-[10px] font-black uppercase tracking-widest mt-1">
                                 Награда за скорость: {XP_RULES.HOMEWORK_FAST} XP (сейчас)
                             </p>

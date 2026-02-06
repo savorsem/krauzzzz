@@ -751,6 +751,13 @@ create table if not exists notifications (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- 8. App Settings Table
+create table if not exists app_settings (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
 -- Enable RLS
 alter table profiles enable row level security;
 alter table modules enable row level security;
@@ -759,6 +766,7 @@ alter table streams enable row level security;
 alter table events enable row level security;
 alter table scenarios enable row level security;
 alter table notifications enable row level security;
+alter table app_settings enable row level security;
 
 -- Policies (Public Read, Public Write/Update for simplicity in demo, should be restricted in prod)
 create policy "Public profiles" on profiles for all using (true);
@@ -768,6 +776,7 @@ create policy "Public streams" on streams for all using (true);
 create policy "Public events" on events for all using (true);
 create policy "Public scenarios" on scenarios for all using (true);
 create policy "Public notifications" on notifications for all using (true);
+create policy "Public app_settings" on app_settings for all using (true);
     `;
 
     return (

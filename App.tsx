@@ -89,7 +89,19 @@ const App: React.FC = () => {
   const activeLesson = selectedLessonId ? modules.flatMap(m => m.lessons).find(l => l.id === selectedLessonId) : null;
   const activeModule = activeLesson ? modules.find(m => m.lessons.some(l => l.id === activeLesson.id)) : null;
 
-  // --- INITIAL SYNC ---
+  // --- INITIAL SYSTEM SYNC (CONFIG) ---
+  useEffect(() => {
+      const fetchConfig = async () => {
+          const remoteConfig = await Backend.fetchGlobalConfig(appConfig);
+          if (JSON.stringify(remoteConfig) !== JSON.stringify(appConfig)) {
+              setAppConfig(remoteConfig);
+              Storage.set('appConfig', remoteConfig);
+          }
+      };
+      fetchConfig();
+  }, []);
+
+  // --- USER DATA SYNC ---
   useEffect(() => {
       const initSync = async () => {
           // 1. Sync User Profile
@@ -228,6 +240,7 @@ const App: React.FC = () => {
   const updateStreams = (newStreams: Stream[]) => { setStreams(newStreams); Backend.saveCollection('streams', newStreams); };
   const updateEvents = (newEvents: CalendarEvent[]) => { setEvents(newEvents); Backend.saveCollection('events', newEvents); };
   const updateScenarios = (newScenarios: ArenaScenario[]) => { setScenarios(newScenarios); Backend.saveCollection('scenarios', newScenarios); };
+  const updateConfig = (newConfig: AppConfig) => { setAppConfig(newConfig); Backend.saveGlobalConfig(newConfig); };
 
   if (!userProgress.isAuthenticated) {
     if (showWelcome) return <Welcome onStart={() => setShowWelcome(false)} />;
@@ -313,7 +326,7 @@ const App: React.FC = () => {
               {activeTab === Tab.ADMIN_DASHBOARD && userProgress.role === 'ADMIN' && (
                   <AdminDashboard 
                     config={appConfig}
-                    onUpdateConfig={(c) => { setAppConfig(c); Storage.set('appConfig', c); }}
+                    onUpdateConfig={updateConfig}
                     modules={modules}
                     onUpdateModules={updateModules}
                     materials={materials}

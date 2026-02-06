@@ -1,16 +1,16 @@
 
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Storage } from './storage';
-import { UserProgress, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, UserRole } from '../types';
+import { UserProgress, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, UserRole, AppConfig } from '../types';
 import { Logger } from './logger';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from '../constants';
 import { SCENARIOS } from '../components/SalesArena';
 
-type ContentTable = 'modules' | 'materials' | 'streams' | 'events' | 'scenarios' | 'notifications';
+type ContentTable = 'modules' | 'materials' | 'streams' | 'events' | 'scenarios' | 'notifications' | 'app_settings';
 
 class BackendService {
   
-  // --- USER SYNC (EXISTING) ---
+  // --- USER SYNC ---
 
   async syncUser(localUser: UserProgress): Promise<UserProgress> {
     if (!isSupabaseConfigured() || !localUser.telegramId) {
@@ -82,7 +82,43 @@ class BackendService {
     }
   }
 
-  // --- CONTENT SYNC (NEW) ---
+  // --- GLOBAL CONFIG SYNC ---
+
+  async fetchGlobalConfig(defaultConfig: AppConfig): Promise<AppConfig> {
+      if (!isSupabaseConfigured()) return defaultConfig;
+
+      try {
+          const { data, error } = await supabase!
+              .from('app_settings')
+              .select('*')
+              .eq('id', 'global_config')
+              .single();
+
+          if (error || !data) return defaultConfig;
+          return { ...defaultConfig, ...data.data };
+      } catch (e) {
+          Logger.error('Backend: Fetch config failed', e);
+          return defaultConfig;
+      }
+  }
+
+  async saveGlobalConfig(config: AppConfig) {
+      Storage.set('appConfig', config);
+      if (!isSupabaseConfigured()) return;
+
+      try {
+          const { error } = await supabase!
+              .from('app_settings')
+              .upsert({ id: 'global_config', data: config });
+          
+          if (error) throw error;
+          Logger.info('Backend: Global config saved');
+      } catch (e) {
+          Logger.error('Backend: Save config failed', e);
+      }
+  }
+
+  // --- CONTENT SYNC ---
 
   /**
    * Fetches all app content. If Cloud is empty, seeds it with Constants.
@@ -115,7 +151,7 @@ class BackendService {
           
           if (error) {
               // Silent fail for non-critical tables if missing
-              if (table === 'notifications' && error.code === '42P01') return [];
+              if ((table === 'notifications' || table === 'app_settings') && error.code === '42P01') return [];
               
               console.warn(`Backend: Error fetching ${table}`, error.message);
               return defaultData;
@@ -123,8 +159,12 @@ class BackendService {
 
           if (!data || data.length === 0) {
               if (table === 'notifications') return []; // Don't seed notifications
-              Logger.info(`Backend: ${table} is empty. Seeding...`);
-              await this.saveCollection(table, defaultData);
+              // Only seed if it's strictly content tables, not settings
+              if (table !== 'app_settings') {
+                  Logger.info(`Backend: ${table} is empty. Seeding...`);
+                  await this.saveCollection(table, defaultData);
+                  return defaultData;
+              }
               return defaultData;
           }
 
