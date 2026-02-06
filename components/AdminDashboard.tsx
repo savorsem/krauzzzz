@@ -21,6 +21,8 @@ interface AdminDashboardProps {
   currentUser: UserProgress;
   activeSubTab: 'OVERVIEW' | 'COURSE' | 'MATERIALS' | 'STREAMS' | 'USERS' | 'SETTINGS' | 'ARENA' | 'CALENDAR';
   onSendBroadcast: (notif: AppNotification) => void;
+  notifications: AppNotification[];
+  onClearNotifications: () => void;
   addToast: (type: 'success' | 'error' | 'info', message: string, link?: string) => void;
 }
 
@@ -32,26 +34,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   events, onUpdateEvents,
   scenarios, onUpdateScenarios,
   users, onUpdateUsers,
-  activeSubTab, onSendBroadcast, addToast
+  activeSubTab, onSendBroadcast, notifications, onClearNotifications, addToast
 }) => {
 
-  // --- STATE FOR EDITORS ---
+  // --- LOCAL STATE FOR MODALS ---
+  const [editingUser, setEditingUser] = useState<UserProgress | null>(null);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
-  
+  const [editingLesson, setEditingLesson] = useState<{moduleId: string, lesson: Lesson} | null>(null);
+
   // --- USERS MANAGEMENT ---
   const renderUsers = () => {
-      const toggleRole = (u: UserProgress) => {
-          const roles: UserRole[] = ['STUDENT', 'CURATOR', 'ADMIN'];
-          const currentIdx = roles.indexOf(u.role);
-          const nextRole = roles[(currentIdx + 1) % roles.length];
-          
-          const updated = users.map(user => user.telegramId === u.telegramId ? { ...user, role: nextRole } : user);
+      const handleUserSave = (u: UserProgress) => {
+          const updated = users.map(user => user.telegramId === u.telegramId ? u : user);
           onUpdateUsers(updated);
-          addToast('success', `Роль ${u.name} изменена на ${nextRole}`);
+          setEditingUser(null);
+          addToast('success', 'Профиль обновлен');
       };
 
       const deleteUser = (id: string) => {
-          if(confirm('Удалить пользователя? Это необратимо.')) {
+          if(confirm('Удалить пользователя безвозвратно?')) {
               onUpdateUsers(users.filter(u => u.telegramId !== id));
               addToast('success', 'Пользователь удален');
           }
@@ -59,20 +60,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       return (
         <div className="space-y-4 pb-20 animate-fade-in">
+            {/* User Edit Modal */}
+            {editingUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#1F2128] w-full max-w-md rounded-[2rem] p-6 border border-white/10 space-y-4 shadow-2xl">
+                        <h3 className="text-xl font-black text-white uppercase">Редактирование</h3>
+                        <div>
+                            <label className="text-[10px] uppercase text-gray-500 font-bold">Имя</label>
+                            <input value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold">XP</label>
+                                <input type="number" value={editingUser.xp} onChange={e => setEditingUser({...editingUser, xp: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold">Уровень</label>
+                                <input type="number" value={editingUser.level} onChange={e => setEditingUser({...editingUser, level: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase text-gray-500 font-bold">Роль</label>
+                            <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]">
+                                <option value="STUDENT">Студент</option>
+                                <option value="CURATOR">Куратор</option>
+                                <option value="ADMIN">Админ</option>
+                            </select>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button onClick={() => setEditingUser(null)} variant="ghost" fullWidth>Отмена</Button>
+                            <Button onClick={() => handleUserSave(editingUser)} fullWidth>Сохранить</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <h2 className="text-xl font-black uppercase text-slate-900 dark:text-white">Личный состав ({users.length})</h2>
             <div className="space-y-3">
                 {users.map((u, idx) => (
-                    <div key={idx} className="bg-white dark:bg-[#14161B] p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center">
+                    <div key={idx} className="bg-white dark:bg-[#14161B] p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-[#6C5DD3]/30 transition-all">
                         <div className="flex items-center gap-3">
                             <img src={u.avatarUrl || `https://ui-avatars.com/api/?name=${u.name}`} className="w-10 h-10 rounded-full bg-slate-200 object-cover" />
                             <div>
                                 <p className="font-bold text-sm text-slate-900 dark:text-white">{u.name}</p>
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">{u.role} • Lvl {u.level}</p>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">{u.role} • Lvl {u.level} • {u.xp} XP</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => toggleRole(u)} className="px-3 py-1 bg-[#6C5DD3]/10 text-[#6C5DD3] rounded-lg text-[10px] font-bold uppercase">Role</button>
-                            <button onClick={() => deleteUser(u.telegramId!)} className="px-3 py-1 bg-red-500/10 text-red-500 rounded-lg text-[10px] font-bold uppercase">✕</button>
+                            <button onClick={() => setEditingUser(u)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white rounded-lg text-[10px] font-bold uppercase hover:bg-[#6C5DD3] hover:text-white transition-colors">Edit</button>
+                            <button onClick={() => deleteUser(u.telegramId!)} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-[10px] font-bold uppercase hover:bg-red-500 hover:text-white transition-colors">✕</button>
                         </div>
                     </div>
                 ))}
@@ -106,35 +142,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
       };
 
-      const addLesson = (moduleId: string) => {
-          const newLesson: Lesson = {
-              id: `les-${Date.now()}`,
-              title: 'Новый Урок',
-              description: 'Описание',
-              content: '# Заголовок\nТекст урока...',
-              xpReward: 100,
-              homeworkType: 'TEXT',
-              homeworkTask: 'Задание...',
-              aiGradingInstruction: 'Проверь...'
-          };
+      const saveLesson = () => {
+          if (!editingLesson) return;
+          const { moduleId, lesson } = editingLesson;
+          
           const modIndex = modules.findIndex(m => m.id === moduleId);
+          if (modIndex === -1) return;
+
           const updatedModules = [...modules];
-          updatedModules[modIndex].lessons.push(newLesson);
+          const lessonIndex = updatedModules[modIndex].lessons.findIndex(l => l.id === lesson.id);
+
+          if (lessonIndex >= 0) {
+              updatedModules[modIndex].lessons[lessonIndex] = lesson;
+          } else {
+              updatedModules[modIndex].lessons.push(lesson);
+          }
+          
           onUpdateModules(updatedModules);
+          setEditingLesson(null);
+          addToast('success', 'Урок сохранен');
       };
 
-      const updateLesson = (moduleId: string, lessonId: string, field: keyof Lesson, value: any) => {
-          const updatedModules = modules.map(m => {
-              if (m.id !== moduleId) return m;
-              return {
-                  ...m,
-                  lessons: m.lessons.map(l => l.id === lessonId ? { ...l, [field]: value } : l)
-              };
+      const createLesson = (moduleId: string) => {
+          setEditingLesson({
+              moduleId,
+              lesson: {
+                  id: `les-${Date.now()}`,
+                  title: 'Новый Урок',
+                  description: '',
+                  content: '# Заголовок\nКонтент урока...',
+                  xpReward: 100,
+                  homeworkType: 'TEXT',
+                  homeworkTask: 'Задание...',
+                  aiGradingInstruction: 'Критерии...'
+              }
           });
-          onUpdateModules(updatedModules);
       };
 
       const deleteLesson = (moduleId: string, lessonId: string) => {
+          if(!confirm('Удалить урок?')) return;
           const updatedModules = modules.map(m => {
               if (m.id !== moduleId) return m;
               return { ...m, lessons: m.lessons.filter(l => l.id !== lessonId) };
@@ -144,6 +190,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       return (
           <div className="space-y-6 pb-20 animate-fade-in">
+              {/* Lesson Edit Modal */}
+              {editingLesson && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                      <div className="bg-[#1F2128] w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2rem] p-6 border border-white/10 space-y-4 shadow-2xl">
+                          <h3 className="text-xl font-black text-white uppercase">Редактор Урока</h3>
+                          <div>
+                              <label className="text-[10px] uppercase text-gray-500 font-bold">Название</label>
+                              <input value={editingLesson.lesson.title} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, title: e.target.value}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="text-[10px] uppercase text-gray-500 font-bold">Тип ДЗ</label>
+                                  <select value={editingLesson.lesson.homeworkType} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, homeworkType: e.target.value as any}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]">
+                                      <option value="TEXT">Текст</option>
+                                      <option value="PHOTO">Фото</option>
+                                      <option value="VIDEO">Видео</option>
+                                      <option value="FILE">Файл (PDF)</option>
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="text-[10px] uppercase text-gray-500 font-bold">Награда (XP)</label>
+                                  <input type="number" value={editingLesson.lesson.xpReward} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, xpReward: parseInt(e.target.value)}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="text-[10px] uppercase text-gray-500 font-bold">Видео URL</label>
+                              <input value={editingLesson.lesson.videoUrl || ''} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, videoUrl: e.target.value}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3]" placeholder="https://..." />
+                          </div>
+                          <div>
+                              <label className="text-[10px] uppercase text-gray-500 font-bold">Контент (Markdown)</label>
+                              <textarea value={editingLesson.lesson.content} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, content: e.target.value}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3] h-40 font-mono text-sm" />
+                          </div>
+                          <div>
+                              <label className="text-[10px] uppercase text-gray-500 font-bold">Задание</label>
+                              <textarea value={editingLesson.lesson.homeworkTask} onChange={e => setEditingLesson({...editingLesson, lesson: {...editingLesson.lesson, homeworkTask: e.target.value}})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#6C5DD3] h-20" />
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                              <Button onClick={() => setEditingLesson(null)} variant="ghost" fullWidth>Отмена</Button>
+                              <Button onClick={saveLesson} fullWidth>Сохранить Урок</Button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               <div className="flex justify-between items-center">
                   <h2 className="text-xl font-black uppercase text-slate-900 dark:text-white">Модули ({modules.length})</h2>
                   <Button onClick={addNewModule} className="!py-2 !px-4 !text-xs">+ Модуль</Button>
@@ -156,12 +246,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <input 
                               value={mod.title} 
                               onChange={(e) => updateModule(mod.id, 'title', e.target.value)}
-                              className="bg-transparent text-lg font-black text-slate-900 dark:text-white w-full border-b border-transparent focus:border-[#6C5DD3] outline-none"
+                              className="bg-transparent text-lg font-black text-slate-900 dark:text-white w-full border-b border-transparent focus:border-[#6C5DD3] outline-none placeholder-gray-500"
+                              placeholder="Название модуля"
                           />
-                          <textarea 
+                          <input 
                               value={mod.description}
                               onChange={(e) => updateModule(mod.id, 'description', e.target.value)}
-                              className="bg-transparent text-xs text-slate-500 w-full resize-none h-10 outline-none"
+                              className="bg-transparent text-xs text-slate-500 w-full outline-none"
+                              placeholder="Краткое описание"
                           />
                           <div className="flex justify-between items-center mt-2">
                               <div className="flex gap-2">
@@ -169,13 +261,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       type="number" 
                                       value={mod.minLevel}
                                       onChange={(e) => updateModule(mod.id, 'minLevel', parseInt(e.target.value))}
-                                      className="w-16 bg-slate-200 dark:bg-black/20 rounded px-2 py-1 text-xs font-bold"
+                                      className="w-16 bg-slate-200 dark:bg-black/20 rounded-lg px-2 py-1 text-xs font-bold text-center"
                                       placeholder="Lvl"
                                   />
                                   <select 
                                       value={mod.category}
                                       onChange={(e) => updateModule(mod.id, 'category', e.target.value)}
-                                      className="bg-slate-200 dark:bg-black/20 rounded px-2 py-1 text-xs font-bold"
+                                      className="bg-slate-200 dark:bg-black/20 rounded-lg px-2 py-1 text-xs font-bold"
                                   >
                                       <option value="GENERAL">General</option>
                                       <option value="SALES">Sales</option>
@@ -184,67 +276,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </select>
                               </div>
                               <div className="flex gap-2">
-                                  <button onClick={() => setEditingModuleId(editingModuleId === mod.id ? null : mod.id)} className="text-[10px] font-bold uppercase text-[#6C5DD3] bg-[#6C5DD3]/10 px-3 py-1 rounded">
-                                      {editingModuleId === mod.id ? 'Скрыть уроки' : `Уроки (${mod.lessons.length})`}
+                                  <button onClick={() => setEditingModuleId(editingModuleId === mod.id ? null : mod.id)} className="text-[10px] font-bold uppercase text-[#6C5DD3] bg-[#6C5DD3]/10 px-3 py-1.5 rounded-lg hover:bg-[#6C5DD3] hover:text-white transition-all">
+                                      {editingModuleId === mod.id ? 'Свернуть' : `Уроки (${mod.lessons.length})`}
                                   </button>
-                                  <button onClick={() => deleteModule(mod.id)} className="text-[10px] font-bold uppercase text-red-500 bg-red-500/10 px-3 py-1 rounded">Удалить</button>
+                                  <button onClick={() => deleteModule(mod.id)} className="text-[10px] font-bold uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-all">Удалить</button>
                               </div>
                           </div>
                       </div>
 
                       {/* Lessons List */}
                       {editingModuleId === mod.id && (
-                          <div className="p-4 space-y-4 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-black/20">
+                          <div className="p-4 space-y-3 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-black/20">
                               {mod.lessons.map(les => (
-                                  <div key={les.id} className="bg-white dark:bg-[#1F2128] p-4 rounded-xl border border-slate-200 dark:border-white/5">
-                                      <div className="flex justify-between mb-2">
-                                          <input 
-                                              value={les.title} 
-                                              onChange={(e) => updateLesson(mod.id, les.id, 'title', e.target.value)}
-                                              className="font-bold text-sm bg-transparent outline-none w-2/3"
-                                          />
-                                          <button onClick={() => deleteLesson(mod.id, les.id)} className="text-red-500 text-xs">✕</button>
+                                  <div key={les.id} className="bg-white dark:bg-[#1F2128] p-3 rounded-xl border border-slate-200 dark:border-white/5 flex justify-between items-center group">
+                                      <span className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[70%]">{les.title}</span>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => setEditingLesson({moduleId: mod.id, lesson: les})} className="text-[#6C5DD3] text-xs font-bold uppercase hover:bg-[#6C5DD3]/10 px-2 py-1 rounded">Edit</button>
+                                          <button onClick={() => deleteLesson(mod.id, les.id)} className="text-red-500 text-xs font-bold uppercase hover:bg-red-500/10 px-2 py-1 rounded">✕</button>
                                       </div>
-                                      <div className="grid grid-cols-2 gap-2 mb-2">
-                                          <select 
-                                              value={les.homeworkType}
-                                              onChange={(e) => updateLesson(mod.id, les.id, 'homeworkType', e.target.value)}
-                                              className="bg-slate-50 dark:bg-white/5 text-[10px] p-1 rounded"
-                                          >
-                                              <option value="TEXT">Text HW</option>
-                                              <option value="PHOTO">Photo HW</option>
-                                              <option value="VIDEO">Video HW</option>
-                                              <option value="FILE">PDF HW</option>
-                                          </select>
-                                          <input 
-                                              type="number"
-                                              value={les.xpReward}
-                                              onChange={(e) => updateLesson(mod.id, les.id, 'xpReward', parseInt(e.target.value))}
-                                              className="bg-slate-50 dark:bg-white/5 text-[10px] p-1 rounded"
-                                              placeholder="XP"
-                                          />
-                                      </div>
-                                      <textarea 
-                                          value={les.content}
-                                          onChange={(e) => updateLesson(mod.id, les.id, 'content', e.target.value)}
-                                          className="w-full h-20 bg-slate-50 dark:bg-white/5 rounded p-2 text-[10px] resize-none mb-2 font-mono"
-                                          placeholder="Markdown content..."
-                                      />
-                                      <input 
-                                          value={les.videoUrl || ''}
-                                          onChange={(e) => updateLesson(mod.id, les.id, 'videoUrl', e.target.value)}
-                                          className="w-full bg-slate-50 dark:bg-white/5 rounded p-2 text-[10px] mb-2"
-                                          placeholder="Video URL (YouTube/File)"
-                                      />
-                                      <textarea 
-                                          value={les.homeworkTask}
-                                          onChange={(e) => updateLesson(mod.id, les.id, 'homeworkTask', e.target.value)}
-                                          className="w-full h-10 bg-slate-50 dark:bg-white/5 rounded p-2 text-[10px] resize-none"
-                                          placeholder="Задание..."
-                                      />
                                   </div>
                               ))}
-                              <Button onClick={() => addLesson(mod.id)} fullWidth variant="secondary" className="!py-2 !text-xs">+ Добавить урок</Button>
+                              <Button onClick={() => createLesson(mod.id)} fullWidth variant="secondary" className="!py-3 !text-xs border-dashed border-2 border-slate-300 dark:border-white/10 bg-transparent hover:bg-slate-200 dark:hover:bg-white/5 text-slate-500">+ Добавить урок</Button>
                           </div>
                       )}
                   </div>
@@ -271,16 +323,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-8 pb-20 animate-fade-in">
               {/* Materials */}
               <div>
-                  <div className="flex justify-between mb-2"><h3 className="font-bold uppercase text-sm">База Знаний</h3><button onClick={addMat} className="text-[#6C5DD3] text-xs font-bold">+</button></div>
-                  <div className="space-y-2">
+                  <div className="flex justify-between mb-4 items-center"><h3 className="font-bold uppercase text-sm text-slate-900 dark:text-white">База Знаний</h3><Button onClick={addMat} className="!py-1 !px-3 !text-[10px]">+</Button></div>
+                  <div className="space-y-3">
                       {materials.map(m => (
-                          <div key={m.id} className="bg-white dark:bg-[#14161B] p-3 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
+                          <div key={m.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2 relative group">
                               <div className="flex gap-2">
-                                  <input value={m.title} onChange={e => updateMat(m.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent" placeholder="Title" />
-                                  <select value={m.type} onChange={e => updateMat(m.id, 'type', e.target.value)} className="bg-transparent"><option value="LINK">Link</option><option value="PDF">PDF</option><option value="VIDEO">Video</option></select>
-                                  <button onClick={() => onUpdateMaterials(materials.filter(x => x.id !== m.id))} className="text-red-500">✕</button>
+                                  <input value={m.title} onChange={e => updateMat(m.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent border-b border-transparent focus:border-[#6C5DD3] outline-none text-slate-900 dark:text-white" placeholder="Title" />
+                                  <select value={m.type} onChange={e => updateMat(m.id, 'type', e.target.value)} className="bg-slate-100 dark:bg-white/5 rounded px-2 text-[10px] outline-none"><option value="LINK">Link</option><option value="PDF">PDF</option><option value="VIDEO">Video</option></select>
+                                  <button onClick={() => onUpdateMaterials(materials.filter(x => x.id !== m.id))} className="text-red-500 hover:bg-red-500/10 px-2 rounded">✕</button>
                               </div>
-                              <input value={m.url} onChange={e => updateMat(m.id, 'url', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-1 rounded" placeholder="URL" />
+                              <input value={m.url} onChange={e => updateMat(m.id, 'url', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-2 rounded text-slate-600 dark:text-white/60" placeholder="URL" />
                           </div>
                       ))}
                   </div>
@@ -288,17 +340,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Streams */}
               <div>
-                  <div className="flex justify-between mb-2"><h3 className="font-bold uppercase text-sm">Эфиры</h3><button onClick={addStream} className="text-[#6C5DD3] text-xs font-bold">+</button></div>
-                  <div className="space-y-2">
+                  <div className="flex justify-between mb-4 items-center"><h3 className="font-bold uppercase text-sm text-slate-900 dark:text-white">Эфиры</h3><Button onClick={addStream} className="!py-1 !px-3 !text-[10px]">+</Button></div>
+                  <div className="space-y-3">
                       {streams.map(s => (
-                          <div key={s.id} className="bg-white dark:bg-[#14161B] p-3 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
+                          <div key={s.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
                               <div className="flex gap-2">
-                                  <input value={s.title} onChange={e => updateStream(s.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent" />
-                                  <select value={s.status} onChange={e => updateStream(s.id, 'status', e.target.value)} className="bg-transparent"><option value="UPCOMING">Upcoming</option><option value="LIVE">Live</option><option value="PAST">Past</option></select>
-                                  <button onClick={() => onUpdateStreams(streams.filter(x => x.id !== s.id))} className="text-red-500">✕</button>
+                                  <input value={s.title} onChange={e => updateStream(s.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent border-b border-transparent focus:border-[#6C5DD3] outline-none text-slate-900 dark:text-white" />
+                                  <select value={s.status} onChange={e => updateStream(s.id, 'status', e.target.value)} className="bg-slate-100 dark:bg-white/5 rounded px-2 text-[10px] outline-none"><option value="UPCOMING">Fut</option><option value="LIVE">Live</option><option value="PAST">Rec</option></select>
+                                  <button onClick={() => onUpdateStreams(streams.filter(x => x.id !== s.id))} className="text-red-500 hover:bg-red-500/10 px-2 rounded">✕</button>
                               </div>
-                              <input type="datetime-local" value={s.date.substring(0, 16)} onChange={e => updateStream(s.id, 'date', new Date(e.target.value).toISOString())} className="w-full bg-slate-50 dark:bg-white/5 p-1 rounded" />
-                              <input value={s.youtubeUrl} onChange={e => updateStream(s.id, 'youtubeUrl', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-1 rounded" placeholder="Stream URL" />
+                              <div className="grid grid-cols-2 gap-2">
+                                <input type="datetime-local" value={s.date.substring(0, 16)} onChange={e => updateStream(s.id, 'date', new Date(e.target.value).toISOString())} className="bg-slate-50 dark:bg-white/5 p-2 rounded" />
+                                <input value={s.youtubeUrl} onChange={e => updateStream(s.id, 'youtubeUrl', e.target.value)} className="bg-slate-50 dark:bg-white/5 p-2 rounded" placeholder="Stream URL" />
+                              </div>
                           </div>
                       ))}
                   </div>
@@ -306,17 +360,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Scenarios */}
               <div>
-                  <div className="flex justify-between mb-2"><h3 className="font-bold uppercase text-sm">Арена</h3><button onClick={addScen} className="text-[#6C5DD3] text-xs font-bold">+</button></div>
-                  <div className="space-y-2">
+                  <div className="flex justify-between mb-4 items-center"><h3 className="font-bold uppercase text-sm text-slate-900 dark:text-white">Арена</h3><Button onClick={addScen} className="!py-1 !px-3 !text-[10px]">+</Button></div>
+                  <div className="space-y-3">
                       {scenarios.map(s => (
-                          <div key={s.id} className="bg-white dark:bg-[#14161B] p-3 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
+                          <div key={s.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
                               <div className="flex gap-2">
-                                  <input value={s.title} onChange={e => updateScen(s.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent" />
-                                  <select value={s.difficulty} onChange={e => updateScen(s.id, 'difficulty', e.target.value)} className="bg-transparent"><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select>
-                                  <button onClick={() => onUpdateScenarios(scenarios.filter(x => x.id !== s.id))} className="text-red-500">✕</button>
+                                  <input value={s.title} onChange={e => updateScen(s.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent border-b border-transparent focus:border-[#6C5DD3] outline-none text-slate-900 dark:text-white" />
+                                  <select value={s.difficulty} onChange={e => updateScen(s.id, 'difficulty', e.target.value)} className="bg-slate-100 dark:bg-white/5 rounded px-2 text-[10px] outline-none"><option value="Easy">Ez</option><option value="Medium">Mid</option><option value="Hard">Hard</option></select>
+                                  <button onClick={() => onUpdateScenarios(scenarios.filter(x => x.id !== s.id))} className="text-red-500 hover:bg-red-500/10 px-2 rounded">✕</button>
                               </div>
-                              <input value={s.clientRole} onChange={e => updateScen(s.id, 'clientRole', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-1 rounded" placeholder="Роль клиента" />
-                              <textarea value={s.objective} onChange={e => updateScen(s.id, 'objective', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-1 rounded h-10 resize-none" placeholder="Цель" />
+                              <input value={s.clientRole} onChange={e => updateScen(s.id, 'clientRole', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-2 rounded mb-1" placeholder="Роль клиента" />
+                              <textarea value={s.objective} onChange={e => updateScen(s.id, 'objective', e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 p-2 rounded h-16 resize-none" placeholder="Цель" />
                           </div>
                       ))}
                   </div>
@@ -336,9 +390,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {events.map(ev => (
                   <div key={ev.id} className="bg-white dark:bg-[#14161B] p-4 rounded-xl border border-slate-200 dark:border-white/5 text-xs space-y-2">
                       <div className="flex gap-2">
-                          <input value={ev.title} onChange={e => updateEv(ev.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent text-sm" />
-                          <select value={ev.type} onChange={e => updateEv(ev.id, 'type', e.target.value)} className="bg-transparent"><option value="WEBINAR">Webinar</option><option value="HOMEWORK">Deadline</option><option value="OTHER">Other</option></select>
-                          <button onClick={() => onUpdateEvents(events.filter(e => e.id !== ev.id))} className="text-red-500">✕</button>
+                          <input value={ev.title} onChange={e => updateEv(ev.id, 'title', e.target.value)} className="font-bold flex-1 bg-transparent text-sm text-slate-900 dark:text-white border-b border-transparent focus:border-[#6C5DD3] outline-none" />
+                          <select value={ev.type} onChange={e => updateEv(ev.id, 'type', e.target.value)} className="bg-slate-100 dark:bg-white/5 rounded px-2 text-[10px] outline-none"><option value="WEBINAR">Webinar</option><option value="HOMEWORK">Deadline</option><option value="OTHER">Other</option></select>
+                          <button onClick={() => onUpdateEvents(events.filter(e => e.id !== ev.id))} className="text-red-500 hover:bg-red-500/10 px-2 rounded">✕</button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                           <input type="datetime-local" value={new Date(ev.date).toISOString().slice(0, 16)} onChange={e => updateEv(ev.id, 'date', new Date(e.target.value).toISOString())} className="bg-slate-50 dark:bg-white/5 p-2 rounded" />
@@ -374,25 +428,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return (
           <div className="space-y-8 pb-20 animate-fade-in">
               <div className="bg-white dark:bg-[#14161B] p-5 rounded-[2rem] border border-slate-200 dark:border-white/5 space-y-4">
-                  <h3 className="font-black text-slate-900 dark:text-white uppercase">Оповещения</h3>
-                  <input value={notifTitle} onChange={e => setNotifTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-white/10" placeholder="Заголовок" />
-                  <textarea value={notifMsg} onChange={e => setNotifMsg(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm border border-slate-200 dark:border-white/10 h-20 resize-none" placeholder="Сообщение для всех..." />
+                  <h3 className="font-black text-slate-900 dark:text-white uppercase">Отправить оповещение</h3>
+                  <input value={notifTitle} onChange={e => setNotifTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white outline-none focus:border-[#6C5DD3]" placeholder="Заголовок" />
+                  <textarea value={notifMsg} onChange={e => setNotifMsg(e.target.value)} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm border border-slate-200 dark:border-white/10 h-24 resize-none text-slate-900 dark:text-white outline-none focus:border-[#6C5DD3]" placeholder="Сообщение для всех..." />
                   <div className="flex gap-2">
                       {['INFO', 'SUCCESS', 'WARNING', 'ALERT'].map(t => (
-                          <button key={t} onClick={() => setNotifType(t as any)} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${notifType === t ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]' : 'border-slate-200 dark:border-white/10 text-slate-500'}`}>{t}</button>
+                          <button key={t} onClick={() => setNotifType(t as any)} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border transition-colors ${notifType === t ? 'bg-[#6C5DD3] text-white border-[#6C5DD3]' : 'border-slate-200 dark:border-white/10 text-slate-500'}`}>{t}</button>
                       ))}
                   </div>
                   <Button onClick={sendNotif} fullWidth>Отправить Всем</Button>
               </div>
 
               <div className="bg-white dark:bg-[#14161B] p-5 rounded-[2rem] border border-slate-200 dark:border-white/5 space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase">История ({notifications.length})</h3>
+                      <button onClick={onClearNotifications} className="text-red-500 text-[10px] font-bold uppercase hover:underline">Очистить</button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {notifications.map(n => (
+                          <div key={n.id} className="p-2 border-l-2 border-slate-300 dark:border-white/20 pl-3">
+                              <div className="flex justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">{new Date(n.date).toLocaleDateString()}</span>
+                                <span className="text-[10px] uppercase font-black text-[#6C5DD3]">{n.type}</span>
+                              </div>
+                              <p className="text-xs text-slate-800 dark:text-white font-medium truncate">{n.title}</p>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#14161B] p-5 rounded-[2rem] border border-slate-200 dark:border-white/5 space-y-4">
                   <h3 className="font-black text-slate-900 dark:text-white uppercase">Конфигурация</h3>
                   <div>
-                      <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Название</label>
-                      <input value={config.appName} onChange={(e) => onUpdateConfig({...config, appName: e.target.value})} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold" />
+                      <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Название Приложения</label>
+                      <input value={config.appName} onChange={(e) => onUpdateConfig({...config, appName: e.target.value})} className="w-full bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-sm font-bold text-slate-900 dark:text-white" />
                   </div>
                   <div className="flex items-center justify-between pt-2">
-                      <span className="text-sm font-bold">Режим обслуживания</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">Режим обслуживания</span>
                       <div onClick={() => onUpdateConfig({...config, features: {...config.features, maintenanceMode: !config.features.maintenanceMode}})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${config.features.maintenanceMode ? 'bg-[#6C5DD3]' : 'bg-slate-300 dark:bg-white/10'}`}>
                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.features.maintenanceMode ? 'left-7' : 'left-1'}`}></div>
                       </div>

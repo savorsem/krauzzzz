@@ -116,53 +116,37 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
       <div className="px-5 pt-6 pb-32 space-y-7 animate-fade-in max-w-2xl mx-auto">
         
-        {/* COMMAND CENTER (HERO) */}
-        <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6C5DD3] to-[#4A3D8D] rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-            <div className="relative bg-[#14161B] rounded-[2.5rem] p-7 text-white overflow-hidden shadow-2xl border border-white/5">
-                {/* Visual accents */}
-                <div className="absolute top-0 right-0 w-48 h-48 bg-[#6C5DD3] rounded-full blur-[80px] opacity-10 -mr-20 -mt-20"></div>
-                
-                <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-8">
-                        <div>
-                            <span className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-[#6C5DD3] mb-3">Командный Центр</span>
-                            <h2 className="text-3xl font-black leading-[0.9] tracking-tighter">ШТУРМ <br/><span className="text-white/40">ВЕРШИНЫ</span></h2>
-                        </div>
-                        <div className="text-right">
-                             <div className="text-4xl font-black">{overallProgress}%</div>
-                             <div className="text-[9px] font-black text-white/30 uppercase tracking-widest">Курс пройден</div>
-                        </div>
-                    </div>
+        {/* PROGRESS & NEXT LESSON CARD */}
+        <div className="relative bg-card rounded-[2.5rem] p-6 shadow-xl border border-border-color overflow-hidden">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-[#6C5DD3]/10 rounded-full blur-[40px] -mr-10 -mt-10"></div>
+             
+             <div className="flex justify-between items-start mb-6 relative z-10">
+                 <div>
+                     <span className="text-[#6C5DD3] text-[9px] font-black uppercase tracking-widest">Текущий прогресс</span>
+                     <h2 className="text-3xl font-black text-text-primary">{overallProgress}%</h2>
+                 </div>
+                 <div className="w-12 h-12 rounded-2xl bg-body flex items-center justify-center text-2xl shadow-inner">
+                     🛡️
+                 </div>
+             </div>
 
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={() => {
-                                const firstIncomplete = modules.flatMap(m => m.lessons).find(l => !userProgress.completedLessonIds.includes(l.id));
-                                if(firstIncomplete) {
-                                    onSelectLesson(firstIncomplete);
-                                } else if (modules[0]?.lessons[0]) {
-                                    onSelectLesson(modules[0].lessons[0]);
-                                }
-                            }}
-                            className="flex-1 flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.97] shadow-xl"
-                        >
-                            В БОЙ
-                        </button>
-                        <button 
-                            onClick={() => onNavigate(Tab.NOTEBOOK)}
-                            className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-2xl active:scale-95 transition-transform"
-                        >
-                            📝
-                        </button>
-                    </div>
-                </div>
-                
-                {/* Tiny Progress Bar at the bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/5">
-                    <div className="h-full bg-[#6C5DD3] transition-all duration-1000 ease-out" style={{ width: `${overallProgress}%` }}></div>
-                </div>
-            </div>
+             <div className="w-full bg-body rounded-full h-2 mb-6 overflow-hidden">
+                 <div className="bg-[#6C5DD3] h-full rounded-full transition-all duration-1000" style={{ width: `${overallProgress}%` }}></div>
+             </div>
+
+             <button 
+                onClick={() => {
+                    const firstIncomplete = modules.flatMap(m => m.lessons).find(l => !userProgress.completedLessonIds.includes(l.id));
+                    if(firstIncomplete) {
+                        onSelectLesson(firstIncomplete);
+                    } else if (modules[0]?.lessons[0]) {
+                        onSelectLesson(modules[0].lessons[0]);
+                    }
+                }}
+                className="w-full py-4 bg-[#6C5DD3] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-[#6C5DD3]/30 active:scale-95 transition-all"
+             >
+                 Продолжить Обучение
+             </button>
         </div>
 
         {/* TRAINING GROUND GRID */}

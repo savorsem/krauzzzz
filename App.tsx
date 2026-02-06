@@ -83,7 +83,7 @@ const App: React.FC = () => {
   const [scenarios, setScenarios] = useState<ArenaScenario[]>(() => Storage.get<ArenaScenario[]>('scenarios', SCENARIOS));
   const [allUsers, setAllUsers] = useState<UserProgress[]>(() => Storage.get<UserProgress[]>('allUsers', []));
   const [userProgress, setUserProgress] = useState<UserProgress>(() => Storage.get<UserProgress>('progress', DEFAULT_USER));
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => Storage.get<AppNotification[]>('local_notifications', []));
 
   // Ref to track last notification count for alerts
   const prevNotifCount = useRef(0);
@@ -101,24 +101,22 @@ const App: React.FC = () => {
               Storage.set('appConfig', remoteConfig);
           }
 
-          // 2. Sync Notifications (Filtered for current user)
+          // 2. Sync Notifications
           const rawNotifs = await Backend.fetchNotifications();
-          const myNotifs = rawNotifs.filter(n => {
-              if (n.targetUserId && n.targetUserId !== userProgress.telegramId) return false;
-              if (n.targetRole && n.targetRole !== 'ALL' && n.targetRole !== userProgress.role) return false;
-              return true;
-          });
+          // Filter to show relevant notifications for user, plus any global ones
+          // Since Backend uses local storage for "local_notifications", this sync effectively just reloads
+          // what might have been added by Admin in same session or different tab.
+          // For a real backend, this would filter by user ID.
+          setNotifications(rawNotifs);
 
-          // Check for new notifications
-          if (myNotifs.length > notifications.length) {
-              const latest = myNotifs[0]; // Assuming backend returns sorted desc
-              if (latest && latest.id !== notifications[0]?.id) {
+          if (rawNotifs.length > prevNotifCount.current && prevNotifCount.current > 0) {
+              const latest = rawNotifs[0];
+              if (latest) {
                    addToast(latest.type === 'ALERT' ? 'error' : 'info', latest.title, latest.link);
                    telegram.haptic('success');
               }
           }
-          
-          setNotifications(myNotifs);
+          prevNotifCount.current = rawNotifs.length;
           
           // 3. Sync Content (Modules, Materials, Streams, etc.)
           const content = await Backend.fetchAllContent();
@@ -256,7 +254,13 @@ const App: React.FC = () => {
   };
   const handleSendBroadcast = (notification: AppNotification) => {
       Backend.sendBroadcast(notification);
+      setNotifications(prev => [notification, ...prev]);
       addToast('success', 'Оповещение отправлено');
+  };
+  const handleClearNotifications = () => {
+      Storage.set('local_notifications', []);
+      setNotifications([]);
+      addToast('info', 'История очищена');
   };
 
   // --- USER ACTIONS ---
@@ -392,6 +396,8 @@ const App: React.FC = () => {
                     currentUser={userProgress}
                     activeSubTab={adminSubTab as any}
                     onSendBroadcast={handleSendBroadcast}
+                    notifications={notifications}
+                    onClearNotifications={handleClearNotifications}
                     addToast={addToast}
                   />
               )}
