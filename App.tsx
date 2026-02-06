@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Tab, UserProgress, Lesson, AppConfig, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification } from './types';
+import { Tab, UserProgress, Lesson, AppConfig, Module, Material, Stream, CalendarEvent, ArenaScenario, AppNotification, Habit, Goal, SmartNavAction } from './types';
 import { COURSE_MODULES, MOCK_EVENTS, MOCK_MATERIALS, MOCK_STREAMS } from './constants';
 import { HomeDashboard } from './components/HomeDashboard';
 import { Profile } from './components/Profile';
@@ -31,7 +31,7 @@ const DEFAULT_CONFIG: AppConfig = {
       crmWebhookUrl: '', 
       aiModelVersion: 'gemini-3-flash-preview',
       databaseUrl: '',
-      airtablePat: '', // Default empty to prevent errors
+      airtablePat: '', 
       airtableBaseId: '',
       airtableTableName: 'Users'
   },
@@ -68,6 +68,7 @@ const DEFAULT_USER: UserProgress = {
   },
   notebook: [],
   habits: [],
+  goals: [], // New goals array
   stats: XPService.getInitStats()
 };
 
@@ -76,6 +77,7 @@ const App: React.FC = () => {
   const [adminSubTab, setAdminSubTab] = useState<'OVERVIEW' | 'COURSE' | 'MATERIALS' | 'STREAMS' | 'USERS' | 'SETTINGS' | 'ARENA' | 'CALENDAR'>('OVERVIEW');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [navAction, setNavAction] = useState<SmartNavAction | null>(null);
 
   // Initialize from LocalStorage (Fast Load)
   const [appConfig, setAppConfig] = useState<AppConfig>(() => Storage.get<AppConfig>('appConfig', DEFAULT_CONFIG));
@@ -90,6 +92,11 @@ const App: React.FC = () => {
 
   const activeLesson = selectedLessonId ? modules.flatMap(m => m.lessons).find(l => l.id === selectedLessonId) : null;
   const activeModule = activeLesson ? modules.find(m => m.lessons.some(l => l.id === activeLesson.id)) : null;
+
+  // Clear nav action when tab changes
+  useEffect(() => {
+      setNavAction(null);
+  }, [activeTab, selectedLessonId]);
 
   // --- AUTOMATIC SYNCHRONIZATION ---
   
@@ -140,7 +147,7 @@ const App: React.FC = () => {
           if (freshUser.role !== userProgress.role || freshUser.level !== userProgress.level || freshUser.xp !== userProgress.xp) {
               setUserProgress(prev => ({ 
                   ...prev, 
-                  ...freshUser, // Merge all fresh data including habits
+                  ...freshUser, // Merge all fresh data including habits/goals
               }));
           }
       }
@@ -245,8 +252,6 @@ const App: React.FC = () => {
   const handleUpdateAllUsers = (newUsers: UserProgress[]) => {
       setAllUsers(newUsers);
       Storage.set('allUsers', newUsers);
-      // Admin update should ideally push to Airtable individually or we implement a batch update in backend
-      // For now, simpler to just sync current user context if needed
   };
   const handleSendBroadcast = (notification: AppNotification) => {
       Backend.sendBroadcast(notification);
@@ -358,8 +363,12 @@ const App: React.FC = () => {
               {activeTab === Tab.HABITS && (
                   <HabitTracker 
                       habits={userProgress.habits || []}
+                      goals={userProgress.goals || []}
                       onUpdateHabits={(habits) => handleUpdateUser({ habits })}
+                      onUpdateGoals={(goals) => handleUpdateUser({ goals })}
+                      onXPEarned={handleXPEarned}
                       onBack={() => setActiveTab(Tab.HOME)}
+                      setNavAction={setNavAction} // Pass action setter
                   />
               )}
 
@@ -369,6 +378,7 @@ const App: React.FC = () => {
                     onUpdate={(e) => handleUpdateUser({ notebook: e })} 
                     onBack={() => setActiveTab(Tab.HOME)} 
                     onXPEarned={handleXPEarned}
+                    setNavAction={setNavAction} // Pass action setter
                  />
               )}
 
@@ -382,6 +392,7 @@ const App: React.FC = () => {
                     onBack={() => setActiveTab(Tab.HOME)} 
                     userProgress={userProgress}
                     onUpdateUser={handleUpdateUser}
+                    setNavAction={setNavAction} // Pass action setter
                   />
               )}
 
@@ -409,6 +420,7 @@ const App: React.FC = () => {
                     events={events}
                     onLogin={handleLogin}
                     onNavigate={setActiveTab}
+                    setNavAction={setNavAction} // Pass action setter
                  />
               )}
 
@@ -450,6 +462,7 @@ const App: React.FC = () => {
         onExitLesson={() => setSelectedLessonId(null)}
         notifications={notifications}
         onClearNotifications={handleClearNotifications}
+        action={navAction} // Pass context action
       />
     </div>
   );

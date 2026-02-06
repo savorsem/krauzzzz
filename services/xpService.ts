@@ -27,7 +27,9 @@ export const XP_RULES = {
     STORY_REPOST: 400,
     MAX_STORY_REPOSTS: 5,
     
-    REFERRAL_FRIEND: 10000
+    REFERRAL_FRIEND: 10000,
+    
+    GOAL_ACHIEVED: 500 // New reward
 };
 
 class XPServiceSystem {
@@ -185,6 +187,16 @@ class XPServiceSystem {
         if (!updatedUser.stats) updatedUser.stats = this.getInitStats();
         updatedUser.stats.referralsCount = (updatedUser.stats.referralsCount || 0) + 1;
         return { xp: XP_RULES.REFERRAL_FRIEND, user: updatedUser };
+    }
+    
+    /**
+     * Goal Achievement
+     */
+    achieveGoal(user: UserProgress): { xp: number, user: UserProgress } {
+        const updatedUser = { ...user };
+        updatedUser.xp += XP_RULES.GOAL_ACHIEVED;
+        // Level up check handled in App.tsx typically, but could be here
+        return { xp: XP_RULES.GOAL_ACHIEVED, user: updatedUser };
     }
 
     /**

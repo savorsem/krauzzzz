@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Tab, UserRole, AppNotification } from '../types';
+import { Tab, UserRole, AppNotification, SmartNavAction } from '../types';
 import { telegram } from '../services/telegramService';
 
 interface SmartNavProps {
@@ -13,6 +13,7 @@ interface SmartNavProps {
   onExitLesson: () => void;
   notifications: AppNotification[];
   onClearNotifications: () => void;
+  action?: SmartNavAction | null; // Context specific action (Save, Apply, etc.)
 }
 
 export const SmartNav: React.FC<SmartNavProps> = ({ 
@@ -24,7 +25,8 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   isLessonActive,
   onExitLesson,
   notifications,
-  onClearNotifications
+  onClearNotifications,
+  action
 }) => {
   const [expandedPanel, setExpandedPanel] = useState<'NONE' | 'ADMIN' | 'NOTIFICATIONS'>('NONE');
   const [isScrolledDown, setIsScrolledDown] = useState(false);
@@ -154,13 +156,51 @@ export const SmartNav: React.FC<SmartNavProps> = ({
       </div>
   );
 
+  // --- RENDER ACTION BUTTON ---
+  const renderAction = () => {
+      if (!action) return null;
+      
+      const variantClasses = {
+          primary: 'bg-gradient-to-r from-[#6C5DD3] to-[#8B7FD9] shadow-[#6C5DD3]/40',
+          success: 'bg-gradient-to-r from-[#00B050] to-[#34D399] shadow-[#00B050]/40',
+          danger: 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-600/40'
+      };
+      
+      const activeVariant = variantClasses[action.variant || 'primary'];
+
+      return (
+          <button 
+              onClick={action.onClick}
+              disabled={action.loading}
+              className={`
+                  w-full h-full flex items-center justify-center gap-3 rounded-[1.7rem] 
+                  text-white font-black uppercase text-sm tracking-widest shadow-lg
+                  active:scale-[0.98] transition-all duration-300 group relative overflow-hidden
+                  ${activeVariant}
+              `}
+          >
+              {/* Shimmer Effect */}
+              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:animate-[shimmer_1.5s_infinite]"></div>
+              
+              {action.loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                  <>
+                      {action.icon && <span className="text-lg">{action.icon}</span>}
+                      <span>{action.label}</span>
+                  </>
+              )}
+          </button>
+      );
+  };
+
   return (
     <div className="fixed bottom-6 left-0 right-0 z-[100] flex justify-center pointer-events-none px-4" style={{ paddingBottom: 'var(--safe-bottom)' }}>
       <div 
         className={`
           pointer-events-auto island-blur bg-[#0F1115]/95 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden relative
           transition-all duration-500 cubic-bezier(0.23, 1, 0.32, 1)
-          ${isScrolledDown && expandedPanel === 'NONE' && !isBackMode ? 'w-[120px] rounded-full translate-y-4 opacity-80 hover:w-auto hover:opacity-100 hover:translate-y-0' : 'w-full max-w-[360px] rounded-[2rem]'}
+          ${isScrolledDown && expandedPanel === 'NONE' && !isBackMode && !action ? 'w-[120px] rounded-full translate-y-4 opacity-80 hover:w-auto hover:opacity-100 hover:translate-y-0' : 'w-full max-w-[360px] rounded-[2rem]'}
           ${expandedPanel !== 'NONE' ? 'rounded-[2.5rem]' : ''}
         `}
       >
@@ -180,7 +220,12 @@ export const SmartNav: React.FC<SmartNavProps> = ({
             {/* MAIN INTERFACE ROW */}
             <div className="h-[64px] flex items-center justify-between px-2 w-full">
                 
-                {isBackMode ? (
+                {action ? (
+                    // --- ACTION MODE (REPLACES NAV) ---
+                    <div className="w-full h-full p-1 animate-slide-up">
+                        {renderAction()}
+                    </div>
+                ) : isBackMode ? (
                     // --- BACK BUTTON MODE ---
                     <button 
                         onClick={handleBack}

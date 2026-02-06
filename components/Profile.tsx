@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProgress, CalendarEvent, UserRole, AppConfig, Tab } from '../types';
+import { UserProgress, CalendarEvent, UserRole, AppConfig, Tab, SmartNavAction } from '../types';
 import { CalendarView } from './CalendarView';
 import { telegram } from '../services/telegramService';
 import { XPService, XP_RULES } from '../services/xpService';
@@ -16,12 +16,13 @@ interface ProfileProps {
   events: CalendarEvent[];
   activeTabOverride?: string;
   onLogin: (data: any) => void;
-  onNavigate: (tab: Tab) => void; // Added for internal navigation
+  onNavigate: (tab: Tab) => void;
+  setNavAction?: (action: SmartNavAction | null) => void; // New Prop
 }
 
 type ProfileTab = 'STATS' | 'CALENDAR' | 'RATING' | 'SETTINGS';
 
-export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUsers, onUpdateUser, events, activeTabOverride, onLogin, onNavigate }) => {
+export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUsers, onUpdateUser, events, activeTabOverride, onLogin, onNavigate, setNavAction }) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>((activeTabOverride as ProfileTab) || 'STATS');
   
   // Parallax Effect State
@@ -34,7 +35,6 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
   const [editInstagram, setEditInstagram] = useState(userProgress.instagram || '');
   const [editAbout, setEditAbout] = useState(userProgress.aboutMe || '');
   
-  // Use a default notifications object if undefined to prevent crash
   const safeNotifications = userProgress.notifications || { 
       pushEnabled: false, 
       telegramSync: false, 
@@ -52,6 +52,21 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
   const appConfig = Storage.get<AppConfig>('appConfig', {} as any);
   const inviteBase = appConfig?.integrations?.inviteBaseUrl || 'https://t.me/SalesProBot?start=ref_';
   const inviteLink = `${inviteBase}${userProgress.telegramUsername || 'unknown'}`;
+
+  // Manage Nav Action based on Tab
+  useEffect(() => {
+      if (activeTab === 'SETTINGS' && setNavAction) {
+          setNavAction({
+              label: isSaving ? 'СОХРАНЕНИЕ...' : 'СОХРАНИТЬ',
+              onClick: handleSaveSettings,
+              variant: 'primary',
+              loading: isSaving,
+              icon: '💾'
+          });
+      } else if (setNavAction) {
+          setNavAction(null);
+      }
+  }, [activeTab, isSaving, editName, editTelegram, editInstagram, editAbout]); // Dependencies to ensure fresh state
 
   // If not authenticated, show Auth component within Profile tab
   if (!userProgress.isAuthenticated) {
@@ -411,14 +426,6 @@ export const Profile: React.FC<ProfileProps> = ({ userProgress, onLogout, allUse
                   </div>
               </div>
           </div>
-
-          <button 
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            className="w-full py-4 bg-[#6C5DD3] text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(108,93,211,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 animate-slide-up delay-300 fill-mode-both hover:bg-[#5b4eb5]"
-          >
-              {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
-          </button>
           
           <button 
              onClick={onLogout} 

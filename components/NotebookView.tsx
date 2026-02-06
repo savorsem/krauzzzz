@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { NotebookEntry } from '../types';
+import React, { useState, useEffect } from 'react';
+import { NotebookEntry, SmartNavAction } from '../types';
 import { telegram } from '../services/telegramService';
 import { XPService, XP_RULES } from '../services/xpService';
 
@@ -9,20 +9,48 @@ interface NotebookViewProps {
   onUpdate: (entries: NotebookEntry[]) => void;
   onBack: () => void;
   onXPEarned: (amount: number) => void;
+  setNavAction?: (action: SmartNavAction | null) => void;
 }
 
-export const NotebookView: React.FC<NotebookViewProps> = ({ entries, onUpdate, onXPEarned }) => {
+export const NotebookView: React.FC<NotebookViewProps> = ({ entries, onUpdate, onXPEarned, setNavAction }) => {
   const [activeTab, setActiveTab] = useState<'IDEA' | 'GRATITUDE'>('IDEA');
   const [inputText, setInputText] = useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Filter: IDEA tab shows IDEA and NOTE types. GRATITUDE shows GRATITUDE.
   const filteredEntries = entries.filter(e => 
       activeTab === 'IDEA' ? (e.type === 'IDEA' || e.type === 'NOTE') : e.type === 'GRATITUDE'
   );
 
+  // --- SMART NAV INTEGRATION ---
+  useEffect(() => {
+      if (!setNavAction) return;
+
+      if (inputText.trim()) {
+          setNavAction({
+              label: 'СОХРАНИТЬ ЗАПИСЬ',
+              onClick: addEntry,
+              variant: 'success',
+              icon: '💾'
+          });
+      } else {
+          setNavAction({
+              label: 'НАПИСАТЬ ЗАМЕТКУ',
+              onClick: () => {
+                  inputRef.current?.focus();
+                  telegram.haptic('selection');
+              },
+              variant: 'primary',
+              icon: '✏️'
+          });
+      }
+
+      return () => { setNavAction(null); };
+  }, [inputText, activeTab]); // Re-evaluate when input changes
+
   const addEntry = () => {
       if (!inputText.trim()) return;
-      telegram.haptic('light');
+      telegram.haptic('success');
       
       const type = activeTab === 'GRATITUDE' ? 'GRATITUDE' : 'IDEA';
       
@@ -83,13 +111,13 @@ export const NotebookView: React.FC<NotebookViewProps> = ({ entries, onUpdate, o
        {/* Quick Add */}
        <div className="flex gap-3">
             <input 
+                ref={inputRef}
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addEntry()}
                 placeholder={`Новая запись (${activeTab === 'GRATITUDE' ? 'Кому/Чему благодарен?' : 'Мысль, инсайт, задача...'})`}
-                className="flex-1 bg-surface border border-border-color rounded-2xl px-5 py-4 text-sm font-bold text-text-primary focus:border-[#6C5DD3] outline-none shadow-sm transition-all"
+                className="w-full bg-surface border border-border-color rounded-2xl px-5 py-4 text-sm font-bold text-text-primary focus:border-[#6C5DD3] outline-none shadow-sm transition-all"
             />
-            <button onClick={addEntry} className="w-14 h-14 bg-[#6C5DD3] text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-[#6C5DD3]/20 active:scale-95 transition-all">+</button>
        </div>
 
        {/* List */}

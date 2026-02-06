@@ -51,7 +51,7 @@ export interface NotebookEntry {
   date: string; 
 }
 
-// --- NEW HABIT TRACKER TYPES ---
+// --- HABIT TRACKER TYPES ---
 export interface Habit {
     id: string;
     title: string;
@@ -60,6 +60,28 @@ export interface Habit {
     completedDates: string[]; // ISO Date strings (YYYY-MM-DD)
     targetDaysPerWeek: number;
     icon: string;
+}
+
+// --- NEW GOAL TRACKER TYPES ---
+export interface Goal {
+    id: string;
+    title: string;
+    currentValue: number;
+    targetValue: number;
+    unit: string; // e.g. '₽', 'km', 'calls'
+    deadline?: string;
+    isCompleted: boolean;
+    colorStart?: string; // Gradient start
+    colorEnd?: string;   // Gradient end
+}
+
+// --- SMART NAV ACTIONS ---
+export interface SmartNavAction {
+    label: string;
+    onClick: () => void;
+    variant?: 'primary' | 'success' | 'danger';
+    icon?: React.ReactNode;
+    loading?: boolean;
 }
 
 export type UserRole = 'STUDENT' | 'ADMIN';
@@ -136,9 +158,10 @@ export interface UserProgress {
   
   notifications: NotificationSettings;
   
-  // Notebook & Habits
+  // Notebook, Habits & Goals
   notebook: NotebookEntry[];
-  habits: Habit[]; // NEW
+  habits: Habit[]; 
+  goals: Goal[]; // NEW
 
   // New Detailed Stats for Rating System
   stats: UserStats;
@@ -236,7 +259,7 @@ export enum Tab {
   ARENA = 'ARENA', 
   STREAMS = 'STREAMS', 
   NOTEBOOK = 'NOTEBOOK', 
-  HABITS = 'HABITS', // NEW
+  HABITS = 'HABITS', 
   PROFILE = 'PROFILE',
   ADMIN_DASHBOARD = 'ADMIN_DASHBOARD'
 }
