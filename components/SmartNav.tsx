@@ -71,12 +71,12 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   // MODE: Lesson Active
   if (isLessonActive) {
     return (
-      <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center pointer-events-none px-6">
+      <div className="fixed bottom-8 left-0 right-0 z-[100] flex justify-center pointer-events-none px-6 animate-slide-up">
         <button 
           onClick={onExitLesson} 
-          className="pointer-events-auto bg-[#14161B] text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 active:scale-95 transition-transform border border-white/10"
+          className="pointer-events-auto bg-[#14161B] text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 active:scale-95 transition-transform border border-white/10 group hover:border-red-500/50"
         >
-          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px]">✕</div>
+          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] group-hover:bg-red-500 transition-colors">✕</div>
           <span className="text-xs font-black uppercase tracking-widest">Завершить урок</span>
         </button>
       </div>
@@ -87,12 +87,19 @@ export const SmartNav: React.FC<SmartNavProps> = ({
   const NavButton = ({ tab, icon, isActive }: { tab: Tab, icon: React.ReactNode, isActive: boolean }) => (
       <button 
         onClick={() => setActiveTab(tab)} 
-        className={`relative w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-300 ${isActive ? 'text-[#FFAB7B] -translate-y-2' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60'}`}
+        className={`relative w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-500 ease-out 
+          ${isActive ? 'text-[#FFAB7B] -translate-y-3 scale-110' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 active:scale-95'}
+        `}
       >
         {isActive && (
-           <div className="absolute -bottom-2 w-1 h-1 rounded-full bg-[#FFAB7B]"></div>
+           <>
+             <div className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-[#FFAB7B] animate-bounce shadow-[0_0_10px_#FFAB7B]"></div>
+             <div className="absolute inset-0 bg-[#FFAB7B]/10 rounded-2xl blur-xl animate-pulse"></div>
+           </>
         )}
-        {icon}
+        <div className={`transition-transform duration-300 ${isActive ? 'rotate-[360deg]' : ''}`}>
+            {icon}
+        </div>
       </button>
   );
 
@@ -109,12 +116,13 @@ export const SmartNav: React.FC<SmartNavProps> = ({
       >
         {/* MODE: Admin Sub-Navigation */}
         {isAdminView && (
-          <div className="w-full flex gap-1 mb-2 overflow-x-auto no-scrollbar py-2 px-1 border-b border-white/5">
-            {adminLinks.map(link => (
+          <div className="w-full flex gap-1 mb-2 overflow-x-auto no-scrollbar py-2 px-1 border-b border-white/5 animate-fade-in">
+            {adminLinks.map((link, idx) => (
               <button
                 key={link.id}
                 onClick={() => setAdminSubTab(link.id)}
-                className={`flex-shrink-0 flex flex-col items-center justify-center py-2.5 px-3 rounded-2xl transition-all min-w-[60px] ${adminSubTab === link.id ? 'bg-[#6C5DD3] text-white shadow-lg shadow-[#6C5DD3]/20' : 'text-slate-400 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+                className={`flex-shrink-0 flex flex-col items-center justify-center py-2.5 px-3 rounded-2xl transition-all min-w-[60px] animate-slide-up ${adminSubTab === link.id ? 'bg-[#6C5DD3] text-white shadow-lg shadow-[#6C5DD3]/20 scale-105' : 'text-slate-400 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+                style={{ animationDelay: `${idx * 0.05}s` }}
               >
                 <span className="text-lg mb-1">{link.icon}</span>
                 <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">{link.label}</span>
