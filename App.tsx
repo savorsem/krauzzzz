@@ -13,7 +13,7 @@ import { Toast, ToastMessage } from './components/Toast';
 import { SCENARIOS, SalesArena } from './components/SalesArena'; 
 import { NotebookView } from './components/NotebookView';
 import { MaterialsView } from './components/MaterialsView';
-import { StreamsView } from './components/StreamsView';
+import { VideoHub } from './components/VideoHub';
 import { HabitTracker } from './components/HabitTracker';
 import { ModuleList } from './components/ModuleList';
 import { Backend } from './services/backendService';
@@ -24,7 +24,7 @@ const DEFAULT_CONFIG: AppConfig = {
   appDescription: 'Elite Sales Academy',
   primaryColor: '#6C5DD3',
   systemInstruction: `Ты — Командир элитного отряда продаж "300 Спартанцев". Твоя задача: сделать из новобранца настоящую машину продаж. СТИЛЬ: Жесткий, военный, вдохновляющий.`,
-  welcomeVideoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // Default welcome video
+  welcomeVideoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 
   welcomeMessage: 'Добро пожаловать в Спарту. Здесь куется характер.',
   integrations: { 
       telegramBotToken: '', 
@@ -69,7 +69,7 @@ const DEFAULT_USER: UserProgress = {
   },
   notebook: [],
   habits: [],
-  goals: [], // New goals array
+  goals: [], 
   stats: XPService.getInitStats()
 };
 
@@ -80,7 +80,6 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [navAction, setNavAction] = useState<SmartNavAction | null>(null);
 
-  // Initialize from LocalStorage (Fast Load)
   const [appConfig, setAppConfig] = useState<AppConfig>(() => Storage.get<AppConfig>('appConfig', DEFAULT_CONFIG));
   const [modules, setModules] = useState<Module[]>(() => Storage.get<Module[]>('courseModules', COURSE_MODULES));
   const [materials, setMaterials] = useState<Material[]>(() => Storage.get<Material[]>('materials', MOCK_MATERIALS));
@@ -94,21 +93,16 @@ const App: React.FC = () => {
   const activeLesson = selectedLessonId ? modules.flatMap(m => m.lessons).find(l => l.id === selectedLessonId) : null;
   const activeModule = activeLesson ? modules.find(m => m.lessons.some(l => l.id === activeLesson.id)) : null;
 
-  // Clear nav action when tab changes
   useEffect(() => {
       setNavAction(null);
   }, [activeTab, selectedLessonId]);
 
-  // --- AUTOMATIC SYNCHRONIZATION ---
-  
   const syncData = useCallback(async () => {
-      // 1. Sync Global Config
       const remoteConfig = await Backend.fetchGlobalConfig(appConfig);
       if (JSON.stringify(remoteConfig) !== JSON.stringify(appConfig)) {
           setAppConfig(remoteConfig);
       }
 
-      // 2. Sync Notifications
       const rawNotifs = await Backend.fetchNotifications();
       const myNotifs = rawNotifs.filter(n => {
           if (n.targetUserId && n.targetUserId !== userProgress.telegramId) return false;
@@ -125,7 +119,6 @@ const App: React.FC = () => {
       }
       setNotifications(myNotifs);
       
-      // 3. Sync Content
       const content = await Backend.fetchAllContent();
       if (content) {
           if (JSON.stringify(content.modules) !== JSON.stringify(modules)) setModules(content.modules);
@@ -135,39 +128,26 @@ const App: React.FC = () => {
           if (JSON.stringify(content.scenarios) !== JSON.stringify(scenarios)) setScenarios(content.scenarios);
       }
 
-      // 4. Sync User List (CRM)
       const remoteUsers = await Backend.getLeaderboard();
       if (JSON.stringify(remoteUsers) !== JSON.stringify(allUsers)) {
           setAllUsers(remoteUsers);
       }
 
-      // 5. Sync Current User (Airtable Priority)
       if (userProgress.isAuthenticated) {
           const freshUser = await Backend.syncUser(userProgress);
-          // Check if key data changed
           if (freshUser.xp !== userProgress.xp || freshUser.level !== userProgress.level || freshUser.role !== userProgress.role) {
               setUserProgress(prev => ({ ...prev, ...freshUser }));
           }
       }
   }, [appConfig, userProgress, modules, materials, streams, events, scenarios, allUsers, notifications]);
 
-  // Initial Sync on Mount and periodic polling
   useEffect(() => {
       syncData();
-      Backend.onSync(() => syncData());
-      const interval = setInterval(syncData, 15000); // Poll every 15s
-      return () => clearInterval(interval);
-  }, []); 
-  
-  useEffect(() => {
-      // Re-register interval if dependencies change significantly, 
-      // but usually syncData captures latest state via ref if needed, or simple dep array
-      const interval = setInterval(syncData, 15000);
+      const interval = setInterval(syncData, 15000); 
       return () => clearInterval(interval);
   }, [syncData]);
 
 
-  // --- THEME & PERSISTENCE ---
   useEffect(() => {
     const root = document.documentElement;
     if (userProgress.theme === 'DARK') {
@@ -185,11 +165,9 @@ const App: React.FC = () => {
     Storage.set('progress', userProgress);
     const timer = setTimeout(() => {
         if (userProgress.isAuthenticated) Backend.saveUser(userProgress);
-    }, 2000); // Debounced save
+    }, 2000); 
     return () => clearTimeout(timer);
   }, [userProgress]);
-
-  // --- ACTIONS ---
 
   const addToast = (type: 'success' | 'error' | 'info', message: string, link?: string) => {
     const id = Date.now().toString();
@@ -205,24 +183,16 @@ const App: React.FC = () => {
           window.open(link, '_blank');
       } else if (Object.values(Tab).includes(link as Tab)) {
           setActiveTab(link as Tab);
-      } else {
-          console.log('Navigating to:', link);
       }
   };
 
   const handleLogin = async (userData: any) => {
     addToast('info', 'Синхронизация данных...');
-    
-    // Attempt full sync with Airtable immediately
     const tempUser = { ...userProgress, ...userData, isAuthenticated: true };
-    const syncedUser = await Backend.syncUser(tempUser); // Force sync
-    
+    const syncedUser = await Backend.syncUser(tempUser); 
     setUserProgress(syncedUser);
-    Backend.saveUser(syncedUser); // Persist
-    
-    // Also fetch global lists
+    Backend.saveUser(syncedUser);
     await syncData(); 
-    
     addToast('success', 'С возвращением, боец!');
   };
 
@@ -232,8 +202,6 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = (data: Partial<UserProgress>) => setUserProgress(prev => ({ ...prev, ...data }));
-
-  // --- ADMIN ACTIONS ---
 
   const handleUpdateModules = (newModules: Module[]) => { 
       setModules(newModules); 
@@ -290,8 +258,6 @@ const App: React.FC = () => {
       addToast('success', 'Урок обновлен');
   };
 
-  // --- USER ACTIONS ---
-
   const handleCompleteLesson = (lessonId: string, xpBonus: number) => {
       const newXp = userProgress.xp + xpBonus;
       const newLevel = Math.floor(newXp / 1000) + 1;
@@ -320,8 +286,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-body text-text-primary transition-colors duration-300 overflow-hidden relative">
-      
-      {/* ATMOSPHERIC BACKGROUND VIDEO (Fixed) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           <video 
               autoPlay 
@@ -368,7 +332,7 @@ const App: React.FC = () => {
                    onUpdateUser={handleUpdateUser}
                    allUsers={allUsers}
                    notifications={notifications}
-                   appConfig={appConfig} // Pass config for welcome video
+                   appConfig={appConfig} 
                  />
               )}
               
@@ -382,7 +346,7 @@ const App: React.FC = () => {
                       onUpdateGoals={(goals) => handleUpdateUser({ goals })}
                       onXPEarned={handleXPEarned}
                       onBack={() => setActiveTab(Tab.HOME)}
-                      setNavAction={setNavAction} // Pass action setter
+                      setNavAction={setNavAction} 
                       isAuthenticated={userProgress.isAuthenticated}
                   />
               )}
@@ -393,7 +357,7 @@ const App: React.FC = () => {
                     onUpdate={(e) => handleUpdateUser({ notebook: e })} 
                     onBack={() => setActiveTab(Tab.HOME)} 
                     onXPEarned={handleXPEarned}
-                    setNavAction={setNavAction} // Pass action setter
+                    setNavAction={setNavAction} 
                  />
               )}
 
@@ -406,12 +370,12 @@ const App: React.FC = () => {
               )}
 
               {activeTab === Tab.STREAMS && (
-                  <StreamsView 
+                  <VideoHub 
                     streams={streams} 
                     onBack={() => setActiveTab(Tab.HOME)} 
                     userProgress={userProgress}
                     onUpdateUser={handleUpdateUser}
-                    setNavAction={setNavAction} // Pass action setter
+                    setNavAction={setNavAction} 
                   />
               )}
 
@@ -439,7 +403,7 @@ const App: React.FC = () => {
                     events={events}
                     onLogin={handleLogin}
                     onNavigate={setActiveTab}
-                    setNavAction={setNavAction} // Pass action setter
+                    setNavAction={setNavAction} 
                  />
               )}
 
@@ -481,7 +445,7 @@ const App: React.FC = () => {
         onExitLesson={() => setSelectedLessonId(null)}
         notifications={notifications}
         onClearNotifications={handleClearNotifications}
-        action={navAction} // Pass context action
+        action={navAction} 
       />
     </div>
   );
